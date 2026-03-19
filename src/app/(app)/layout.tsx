@@ -82,20 +82,20 @@ function AppContent({ children }: { children: React.ReactNode }) {
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {mobileSidebarOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden" 
-            onClick={() => setMobileSidebarOpen(false)} 
+            className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
       <aside className={cn(
-        "border-r border-border/50 bg-background lg:bg-muted/5 flex flex-col h-screen shrink-0 fixed lg:relative z-50 transition-[transform,width] duration-300 ease-in-out lg:translate-x-0 will-change-transform overflow-hidden",
-        mobileSidebarOpen ? "translate-x-0 w-72 shadow-2xl lg:shadow-none" : "-translate-x-full w-72 lg:w-auto",
+        "border-r border-border/50 bg-background lg:bg-muted/5 flex flex-col h-screen shrink-0 fixed lg:relative z-50 transition-[transform,width] duration-300 ease-in-out lg:translate-x-0 will-change-transform overflow-hidden mt-[env(safe-area-inset-top)]",
+        mobileSidebarOpen ? "translate-x-0 w-64 shadow-2xl lg:shadow-none" : "-translate-x-full w-64 lg:w-auto",
         sidebarCollapsed ? "lg:w-20" : "lg:w-72"
       )}>
         <div className={cn(
@@ -179,7 +179,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
           </SidebarGroup>
         </nav>
 
-        <div className="p-4 border-t border-border/50">
+        <div className="p-4 border-t border-border/50 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <Button variant="ghost" className={cn("w-full justify-start gap-3 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/5", sidebarCollapsed && "justify-center px-0")} onClick={handleLogout}>
             <LogOut className="size-4" />
             {!sidebarCollapsed && <span className="font-medium">退出登录</span>}
@@ -190,7 +190,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
-        <header className="h-14 sm:h-16 border-b border-border/50 flex items-center justify-between px-3 sm:pl-4 sm:pr-8 bg-background/80 backdrop-blur-md z-10 shrink-0">
+        <header className="h-14 sm:h-16 border-b border-border/50 flex items-center justify-between px-3 sm:pl-4 sm:pr-8 bg-background/80 backdrop-blur-md z-10 shrink-0 mt-[env(safe-area-inset-top)]">
           <div className="flex items-center gap-1 sm:gap-2">
              <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="rounded-xl hover:bg-muted shrink-0 hidden lg:flex">
                <PanelLeft className="size-4 text-muted-foreground" />
@@ -301,7 +301,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pb-[env(safe-area-inset-bottom)]">
           {children}
         </div>
       </div>

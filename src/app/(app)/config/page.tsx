@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Settings, Save, Play, RefreshCw, Search, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Settings, Save, Play, RefreshCw, Search,
   Code, Layout, FileJson, AlertCircle, CheckCircle2,
   ChevronRight, Globe, Shield, MessageSquare, Zap, Cpu,
-  Database, Bell, Terminal, Palette, Layers, Box
+  Database, Bell, Terminal, Palette, Layers, Box, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,20 +164,20 @@ export default function ConfigPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col animate-in fade-in duration-500">
+    <div className="h-[calc(100vh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex flex-col animate-in fade-in duration-500">
       {/* Top Header */}
-      <div className="px-8 py-4 border-b bg-background/50 backdrop-blur-xl flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="px-4 md:px-8 py-3 md:py-4 border-b bg-background/50 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3 md:gap-4">
           <div className="p-2 bg-primary/10 rounded-xl">
             <Settings className="size-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">全局配置 (Config)</h1>
+            <h1 className="text-lg md:text-xl font-bold">全局配置 (Config)</h1>
             <p className="text-xs text-muted-foreground">管理 OpenClaw 核心运行参数及多维度元数据。</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-muted/40 p-1 rounded-xl border mr-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex bg-muted/40 p-1 rounded-xl border mr-0 md:mr-4">
             <button 
               onClick={() => setMode("form")}
               className={cn("px-4 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-2", mode === "form" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
@@ -207,17 +213,17 @@ export default function ConfigPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-72 border-r bg-muted/10 overflow-y-auto p-4 space-y-1">
+      <div className="flex-1 flex overflow-hidden flex-col sm:flex-row">
+        {/* Left Sidebar - Hidden on mobile, shown on tablet+ */}
+        <div className="hidden sm:block w-56 md:w-72 border-r bg-muted/10 overflow-y-auto p-3 md:p-4 space-y-1">
           {SECTIONS.map(s => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
               className={cn(
                 "w-full flex items-start gap-3 p-3 rounded-2xl transition-all group relative overflow-hidden",
-                activeSection === s.id 
-                  ? "bg-primary/10 text-primary border border-primary/20" 
+                activeSection === s.id
+                  ? "bg-primary/10 text-primary border border-primary/20"
                   : "hover:bg-muted/50 border border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
@@ -241,6 +247,36 @@ export default function ConfigPage() {
           </div>
         </div>
 
+        {/* Mobile Section Selector - Styled Dropdown */}
+        <div className="sm:hidden w-full border-b bg-muted/10 p-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full h-9 rounded-xl bg-background/80 border-border/50 justify-between font-medium text-sm">
+                <span className="flex items-center gap-2">
+                  {(() => {
+                    const Icon = SECTIONS.find(s => s.id === activeSection)?.icon || Box;
+                    return <Icon className="size-4" />;
+                  })()}
+                  {SECTIONS.find(s => s.id === activeSection)?.label || "选择配置"}
+                </span>
+                <ChevronDown className="size-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[calc(100vw-32px)] max-h-[60vh] overflow-y-auto">
+              {SECTIONS.map(s => (
+                <DropdownMenuItem
+                  key={s.id}
+                  onClick={() => setActiveSection(s.id)}
+                  className={cn("cursor-pointer", activeSection === s.id && "bg-primary/10")}
+                >
+                  <s.icon className="size-4 mr-2 opacity-60" />
+                  {s.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         {/* Main Editor Area */}
         <div className="flex-1 overflow-hidden bg-background">
           {mode === "raw" ? (
@@ -258,10 +294,10 @@ export default function ConfigPage() {
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-y-auto p-12 space-y-12 max-w-4xl">
+            <div className="h-full overflow-y-auto p-4 md:p-8 lg:p-12 space-y-6 md:space-y-8 lg:space-y-12 max-w-4xl">
               <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="p-3 bg-primary/10 rounded-2xl">
+                <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-8">
+                  <div className="p-2 md:p-3 bg-primary/10 rounded-2xl">
                     {(() => {
                       const Icon = SECTIONS.find(s => s.id === activeSection)?.icon || Box;
                       return <Icon className="size-6 text-primary" />;
@@ -273,7 +309,7 @@ export default function ConfigPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-4 md:gap-y-6">
                   {activeSection === "agents" && (
                     <>
                       {renderField("默认模型", "agents.defaultModel", "string", "系统全局默认使用的 AI 模型 ID")}

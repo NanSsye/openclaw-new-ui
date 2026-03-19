@@ -100,10 +100,10 @@ export default function UsagePage() {
   const maxDailyTokens = Math.max(...daily.map((d: any) => d.totalTokens || 0), 100);
 
   return (
-    <div className="flex flex-col h-full p-6 gap-6 max-w-7xl mx-auto overflow-y-auto animate-in fade-in duration-300 custom-scrollbar">
-      <div className="flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full p-4 md:p-6 gap-4 md:gap-6 max-w-7xl mx-auto overflow-y-auto animate-in fade-in duration-300 custom-scrollbar">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">使用情况 (Usage)</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">使用情况 (Usage)</h1>
           <p className="text-muted-foreground mt-1">全局大模型消耗统计 ({startDate} ~ {endDate})</p>
         </div>
         <div className="flex items-center gap-4">
@@ -115,14 +115,14 @@ export default function UsagePage() {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-        <Card className="p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-50 text-blue-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
-            <Database className="size-10" />
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 shrink-0">
+        <Card className="p-3 md:p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 md:p-4 opacity-50 text-blue-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
+            <Database className="size-8 md:size-10" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">总计 Token 消耗</p>
-            <div className="text-3xl font-bold tracking-tight text-foreground">{formatNumber(totals.totalTokens)}</div>
+            <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{formatNumber(totals.totalTokens)}</div>
             <p className="text-xs text-muted-foreground mt-2">
               <span className="text-blue-500 font-medium">输入 {formatTokens(totals.input)}</span> · 
               输出 {formatTokens(totals.output)}
@@ -130,39 +130,39 @@ export default function UsagePage() {
           </div>
         </Card>
         
-        <Card className="p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-50 text-green-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
-            <Coins className="size-10" />
+        <Card className="p-3 md:p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 md:p-4 opacity-50 text-green-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
+            <Coins className="size-8 md:size-10" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">估算金额花费</p>
-            <div className="text-3xl font-bold tracking-tight text-foreground">{formatCost(totals.totalCost)}</div>
+            <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{formatCost(totals.totalCost)}</div>
             <p className="text-xs text-muted-foreground mt-2 opacity-70">
               基于配置的模型单价计算
             </p>
           </div>
         </Card>
         
-        <Card className="p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-50 text-orange-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
-            <Layers className="size-10" />
+        <Card className="p-3 md:p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 md:p-4 opacity-50 text-orange-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
+            <Layers className="size-8 md:size-10" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">Cache 命中量</p>
-            <div className="text-3xl font-bold tracking-tight text-foreground">{formatNumber(totals.cacheRead)}</div>
+            <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{formatNumber(totals.cacheRead)}</div>
             <p className="text-xs text-muted-foreground mt-2">
               <span className="text-orange-500 font-medium">{totals.totalTokens > 0 ? ((totals.cacheRead / totals.totalTokens) * 100).toFixed(1) : 0}%</span> 缓存命中率
             </p>
           </div>
         </Card>
         
-        <Card className="p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-50 text-purple-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
-            <Activity className="size-10" />
+        <Card className="p-3 md:p-5 border-border/50 bg-gradient-to-br from-background to-muted/20 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 md:p-4 opacity-50 text-purple-500 group-hover:scale-110 group-hover:opacity-100 transition-all">
+            <Activity className="size-8 md:size-10" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">活跃会话数</p>
-            <div className="text-3xl font-bold tracking-tight text-foreground">{formatNumber(sessions.length)}</div>
+            <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{formatNumber(sessions.length)}</div>
             <p className="text-xs text-muted-foreground mt-2 opacity-70">
                本周期的激活对话
             </p>
@@ -170,10 +170,10 @@ export default function UsagePage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 shrink-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 shrink-0">
         {/* Daily Bar Chart */}
-        <Card className="col-span-1 lg:col-span-2 p-6 border-border/50 bg-background/50 flex flex-col min-h-[300px]">
-          <h2 className="text-lg font-bold tracking-tight mb-6">每日消耗走势 (近 7 天)</h2>
+        <Card className="col-span-1 lg:col-span-2 p-4 md:p-6 border-border/50 bg-background/50 flex flex-col min-h-[250px] md:min-h-[300px]">
+          <h2 className="text-base md:text-lg font-bold tracking-tight mb-4 md:mb-6">每日消耗走势 (近 7 天)</h2>
           <div className="flex items-end gap-3 flex-1 pb-2">
             {daily.length === 0 && !loading ? (
               <div className="w-full text-center text-muted-foreground border-2 border-dashed border-border/50 rounded-xl h-full flex items-center justify-center">
@@ -207,8 +207,8 @@ export default function UsagePage() {
         </Card>
 
         {/* Top Sessions */}
-        <Card className="col-span-1 p-6 border-border/50 bg-background/50 flex flex-col min-h-[300px]">
-           <h2 className="text-lg font-bold tracking-tight mb-4 text-foreground">Top 会话算力榜单</h2>
+        <Card className="col-span-1 p-4 md:p-6 border-border/50 bg-background/50 flex flex-col min-h-[250px] md:min-h-[300px]">
+           <h2 className="text-base md:text-lg font-bold tracking-tight mb-3 md:mb-4 text-foreground">Top 会话算力榜单</h2>
            <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
              {sessions.length === 0 && !loading ? (
                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border/50 rounded-xl">

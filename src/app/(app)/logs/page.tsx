@@ -158,13 +158,13 @@ export default function LogsPage() {
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col animate-in fade-in duration-500 overflow-hidden">
       {/* Search & Statistics Bar */}
-      <div className="px-8 py-4 border-b bg-background/50 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+      <div className="px-4 md:px-8 py-3 md:py-4 border-b bg-background/50 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 shrink-0">
         <div className="flex items-center gap-6 flex-1">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-emerald-500/10 rounded-lg">
               <Terminal className="size-5 text-emerald-500" />
             </div>
-            <h1 className="text-xl font-bold whitespace-nowrap">系统日志 (Logs)</h1>
+            <h1 className="text-lg md:text-xl font-bold whitespace-nowrap">系统日志 (Logs)</h1>
           </div>
           <div className="relative flex-1 max-w-md hidden lg:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
@@ -199,7 +199,7 @@ export default function LogsPage() {
       </div>
 
       {/* Level Filter Bar */}
-      <div className="px-8 py-2 border-b bg-muted/10 flex items-center gap-2 overflow-x-auto whitespace-nowrap shrink-0 scrollbar-hide">
+      <div className="px-4 md:px-8 py-2 border-b bg-muted/10 flex items-center gap-2 overflow-x-auto whitespace-nowrap shrink-0 scrollbar-hide">
         <Filter className="size-3.5 text-muted-foreground mr-2 shrink-0" />
         {LEVELS.map(level => (
           <button
@@ -222,7 +222,7 @@ export default function LogsPage() {
       </div>
 
       {/* Main Log Terminal Container */}
-      <div className="flex-1 px-8 pb-8 overflow-hidden bg-muted/10">
+      <div className="flex-1 px-4 md:px-8 pb-4 md:pb-8 overflow-hidden bg-muted/10">
         <div 
           ref={scrollRef}
           className="h-full rounded-2xl border border-white/5 bg-[#0a0a0a] font-mono text-xs leading-relaxed selection:bg-emerald-500/30 overflow-y-auto"

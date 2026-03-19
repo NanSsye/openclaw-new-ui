@@ -9,14 +9,14 @@ export default function InstancesPage() {
   const { presence } = useGateway();
 
   return (
-    <main className="p-8 space-y-8 bg-muted/5">
-      <div className="max-w-7xl mx-auto space-y-8 pb-12">
+    <main className="p-4 md:p-8 space-y-6 md:space-y-8 bg-muted/5">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-12">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight">实例管理</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">实例管理</h1>
           <p className="text-muted-foreground">监控当前连接到网关的所有活跃实例。</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {presence.length === 0 ? (
             <div className="col-span-full h-64 flex flex-col items-center justify-center border-2 border-dashed border-border/50 rounded-3xl bg-background/50">
               <Cpu className="size-12 mb-4 opacity-10" />
@@ -38,7 +38,7 @@ function InstanceCard({ data }: { data: any }) {
   
   return (
     <Card className="border-border/50 shadow-sm hover:border-primary/20 transition-all bg-background overflow-hidden flex flex-col">
-      <CardHeader className="p-6 bg-muted/5 border-b border-border/30">
+      <CardHeader className="p-4 md:p-6 bg-muted/5 border-b border-border/30">
         <div className="flex items-center justify-between mb-2">
             <div className={cn(
               "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
@@ -48,7 +48,7 @@ function InstanceCard({ data }: { data: any }) {
             </div>
             <span className="text-[10px] font-mono text-muted-foreground">{data.id?.slice(0, 8) || "N/A"}</span>
         </div>
-        <CardTitle className="text-lg flex items-center gap-2">
+        <CardTitle className="text-base md:text-lg flex items-center gap-2">
             <Monitor className="size-5 text-primary" />
             {data.client?.name || "未知客户端"}
         </CardTitle>
@@ -57,8 +57,8 @@ function InstanceCard({ data }: { data: any }) {
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="p-6 flex-1 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+      <CardContent className="p-4 md:p-6 flex-1 space-y-3 md:space-y-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
             <InfoItem icon={<Globe className="size-3.5" />} label="区域" value={data.location || "Global"} />
             <InfoItem icon={<Shield className="size-3.5" />} label="角色" value={data.role || "Operator"} />
             <InfoItem icon={<Zap className="size-3.5" />} label="模式" value={data.client?.mode || "standard"} />

@@ -127,10 +127,10 @@ export default function SkillsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">扩展技能 (Skills)</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">扩展技能 (Skills)</h1>
           <p className="text-muted-foreground mt-1">
             总览并调整当前所有开启的扩展插件及三方工具 (Tools)。
           </p>
@@ -138,9 +138,9 @@ export default function SkillsPage() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input 
-              placeholder="搜索技能名称或描述..." 
-              className="pl-9 w-[280px] bg-background/50" 
+            <Input
+              placeholder="搜索技能名称或描述..."
+              className="pl-9 w-full sm:w-[200px] md:w-[280px] bg-background/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -151,7 +151,7 @@ export default function SkillsPage() {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {groups.length === 0 && !loading && (
           <div className="p-12 text-center border-2 border-dashed rounded-2xl bg-muted/20 opacity-60">
             <Zap className="size-12 mx-auto mb-4 stroke-1" />
@@ -173,10 +173,10 @@ export default function SkillsPage() {
             </button>
             
             {!collapsedGroups[id] && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {group.items.map((skill: any) => (
                   <Card key={skill.skillKey} className="group relative overflow-hidden bg-background/50 border-border/50 hover:border-primary/30 transition-all duration-300">
-                    <div className="p-6 space-y-4">
+                    <div className="p-4 md:p-6 space-y-3 md:space-y-4">
                       {/* Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">

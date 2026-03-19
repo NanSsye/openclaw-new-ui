@@ -51,11 +51,11 @@ export default function SessionsPage() {
   }, {});
 
   return (
-    <main className="p-8 space-y-8 bg-muted/5">
-      <div className="max-w-7xl mx-auto space-y-8 pb-12">
-        <div className="flex items-center justify-between">
+    <main className="p-4 md:p-8 space-y-6 md:space-y-8 bg-muted/5">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-12">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold tracking-tight">会话管理</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">会话管理</h1>
                 <p className="text-muted-foreground">查看并管理网关跟踪的所有会话上下文。</p>
             </div>
             <Button variant="outline" size="sm" onClick={loadSessions} disabled={loading} className="rounded-xl gap-2">
@@ -97,19 +97,19 @@ export default function SessionsPage() {
 function SessionItem({ data, color }: { data: any; color: string }) {
   return (
     <Card className="border-border/50 shadow-sm hover:shadow-md transition-all bg-background overflow-hidden" style={{ borderLeftWidth: 3, borderLeftColor: color }}>
-      <div className="flex items-center p-6 gap-6">
-        <div className="size-12 rounded-2xl flex items-center justify-center shrink-0 border border-border/50" style={{ backgroundColor: `${color}10` }}>
+      <div className="flex items-center p-4 md:p-6 gap-3 md:gap-6">
+        <div className="size-10 md:size-12 rounded-2xl flex items-center justify-center shrink-0 border border-border/50" style={{ backgroundColor: `${color}10` }}>
             <Hash className="size-6" style={{ color }} />
         </div>
 
         <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-1">
-                <span className="font-bold text-lg truncate">{data.label || data.key.split(":").pop()}</span>
+            <div className="flex items-center gap-2 md:gap-3 mb-1">
+                <span className="font-bold text-base md:text-lg truncate">{data.label || data.key.split(":").pop()}</span>
                 <div className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0" style={{ backgroundColor: `${color}15`, color }}>
                     {data.scope || "global"}
                 </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5 font-mono">
                     <Clock className="size-3" />
                     {(() => {

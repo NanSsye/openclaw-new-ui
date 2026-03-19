@@ -82,10 +82,10 @@ export default function NodesPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">集群节点 (Nodes)</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">集群节点 (Nodes)</h1>
           <p className="text-muted-foreground mt-1">
             实时监控目前连接到主控制网关的所有代理工作节点及受控设备。
           </p>
@@ -108,8 +108,8 @@ export default function NodesPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="monitor" className="mt-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <TabsContent value="monitor" className="mt-6 md:mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {nodes.length === 0 && !loading && (
               <Card className="col-span-full p-12 text-center border-dashed bg-muted/20 opacity-60">
                 <Server className="size-12 mx-auto mb-4 stroke-1" />
@@ -118,7 +118,7 @@ export default function NodesPage() {
             )}
             {nodes.map(node => (
               <Card key={node.nodeId} className="group relative overflow-hidden bg-background/50 border-border/50 hover:border-primary/30 transition-all duration-300">
-                <div className="p-6 space-y-4">
+                <div className="p-4 md:p-6 space-y-3 md:space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-lg truncate mb-1">
@@ -161,7 +161,7 @@ export default function NodesPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="pairing" className="mt-8 space-y-8">
+        <TabsContent value="pairing" className="mt-6 md:mt-8 space-y-6 md:space-y-8">
           {/* Pending Requests */}
           {devices.pending.length > 0 && (
             <div className="space-y-4">
@@ -171,7 +171,7 @@ export default function NodesPage() {
               </h2>
               <div className="space-y-2">
                 {devices.pending.map((req: any) => (
-                  <Card key={req.requestId} className="p-4 bg-amber-500/5 border-amber-500/20">
+                  <Card key={req.requestId} className="p-3 md:p-4 bg-amber-500/5 border-amber-500/20">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-amber-500/10 rounded-full text-amber-500">
@@ -210,7 +210,7 @@ export default function NodesPage() {
                 </div>
               )}
               {devices.paired.map((device: any) => (
-                <Card key={device.deviceId} className="p-5 border-border/50 bg-background/30">
+                <Card key={device.deviceId} className="p-4 md:p-5 border-border/50 bg-background/30">
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1 space-y-4">
                       <div className="flex items-start gap-4">

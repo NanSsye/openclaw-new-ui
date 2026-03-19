@@ -114,10 +114,10 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-300">
       {/* Top Banner */}
-      <div className="p-6 shrink-0 border-b border-border/50 bg-background/50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="p-4 md:p-6 shrink-0 border-b border-border/50 bg-background/50">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">定时任务 (CronJobs)</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">定时任务 (CronJobs)</h1>
             <p className="text-muted-foreground mt-1">管理自动化工作流，调度 AI 助手定时运行的预配置作业。</p>
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="gap-2">
@@ -126,10 +126,10 @@ export default function TasksPage() {
           </Button>
         </div>
 
-        <div className="max-w-7xl mx-auto mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-           <Card className="p-4 flex items-center gap-4 bg-muted/20 border-border/50 relative overflow-hidden">
-             <div className="p-3 bg-primary/10 rounded-full text-primary">
-               <Power className="size-5" />
+        <div className="max-w-7xl mx-auto mt-4 md:mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+           <Card className="p-3 md:p-4 flex items-center gap-3 md:gap-4 bg-muted/20 border-border/50 relative overflow-hidden">
+             <div className="p-2 md:p-3 bg-primary/10 rounded-full text-primary">
+               <Power className="size-4 md:size-5" />
              </div>
              <div>
                <p className="text-sm font-medium text-muted-foreground">全局 Cron 引擎</p>
@@ -139,9 +139,9 @@ export default function TasksPage() {
              </div>
            </Card>
            
-           <Card className="p-4 flex items-center gap-4 bg-muted/20 border-border/50">
-             <div className="p-3 bg-blue-500/10 rounded-full text-blue-500">
-               <Activity className="size-5" />
+           <Card className="p-3 md:p-4 flex items-center gap-3 md:gap-4 bg-muted/20 border-border/50">
+             <div className="p-2 md:p-3 bg-blue-500/10 rounded-full text-blue-500">
+               <Activity className="size-4 md:size-5" />
              </div>
              <div>
                <p className="text-sm font-medium text-muted-foreground">挂载任务总数</p>
@@ -149,9 +149,9 @@ export default function TasksPage() {
              </div>
            </Card>
 
-           <Card className="p-4 flex items-center gap-4 bg-muted/20 border-border/50">
-             <div className="p-3 bg-orange-500/10 rounded-full text-orange-500">
-               <Clock className="size-5" />
+           <Card className="p-3 md:p-4 flex items-center gap-3 md:gap-4 bg-muted/20 border-border/50">
+             <div className="p-2 md:p-3 bg-orange-500/10 rounded-full text-orange-500">
+               <Clock className="size-4 md:size-5" />
              </div>
              <div>
                <p className="text-sm font-medium text-muted-foreground">引擎下一次唤醒</p>
@@ -164,10 +164,9 @@ export default function TasksPage() {
       </div>
 
       {/* Main Workspace Split Pane */}
-      <div className="flex-1 flex overflow-hidden">
-        
+      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
         {/* Left Pane - Job List */}
-        <div className="w-1/3 min-w-[320px] max-w-[400px] border-r border-border/50 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar bg-background/30">
+        <div className="w-full lg:w-1/3 min-w-[280px] lg:min-w-[320px] max-w-[400px] border-r border-border/50 p-3 md:p-4 flex flex-col gap-3 md:gap-4 overflow-y-auto custom-scrollbar bg-background/30">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">作业列表 ({jobs.length})</h2>
             <Button variant="ghost" size="sm" className="h-8 text-xs text-primary hover:text-primary">
@@ -219,16 +218,16 @@ export default function TasksPage() {
         </div>
 
         {/* Right Pane - Details & Runs */}
-        <div className="flex-1 overflow-y-auto bg-muted/10 p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto bg-muted/10 p-4 md:p-6 custom-scrollbar">
           {!selectedJob ? (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4 opacity-60">
                <CalendarClock className="size-16 stroke-1" />
                <p>在左侧选择一个 Cron Job 查看执行流水线</p>
             </div>
           ) : (
-             <div className="max-w-4xl mx-auto space-y-6">
+             <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
                 <div>
-                   <h2 className="text-2xl font-bold">{selectedJob.name}</h2>
+                   <h2 className="text-xl md:text-2xl font-bold">{selectedJob.name}</h2>
                    <p className="text-muted-foreground mt-1">{selectedJob.description || "暂无描述"}</p>
                 </div>
                 

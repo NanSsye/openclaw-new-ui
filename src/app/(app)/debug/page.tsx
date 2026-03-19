@@ -88,14 +88,14 @@ export default function DebugPage() {
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-red-500/10 rounded-2xl">
-            <Bug className="size-6 text-red-500" />
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="p-2 md:p-3 bg-red-500/10 rounded-2xl">
+            <Bug className="size-5 md:size-6 text-red-500" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">状态调试 (Debug)</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">状态调试 (Debug)</h1>
             <p className="text-muted-foreground mt-1">
               执行底层调试指令，清理缓存、发起 JSON/RPC 诊断包测试。
             </p>
@@ -107,25 +107,25 @@ export default function DebugPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
         {/* Left Column: Snapshots */}
-        <div className="space-y-6">
-          <Card className="p-6 border-border/50 bg-muted/5">
+        <div className="space-y-4 md:space-y-6">
+          <Card className="p-4 md:p-6 border-border/50 bg-muted/5">
             <div className="flex items-center gap-2 mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
               <Activity className="size-4" /> 系统快照 (Status)
             </div>
             {renderJson(snapshots.status || { loading: true })}
           </Card>
 
-          <Card className="p-6 border-border/50 bg-muted/5">
-            <div className="flex items-center gap-2 mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+          <Card className="p-4 md:p-6 border-border/50 bg-muted/5">
+            <div className="flex items-center gap-2 mb-3 md:mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
               <Zap className="size-4" /> 健康自检 (Health)
             </div>
             {renderJson(snapshots.health || { loading: true })}
           </Card>
 
-          <Card className="p-6 border-border/50 bg-muted/5">
-            <div className="flex items-center gap-2 mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+          <Card className="p-4 md:p-6 border-border/50 bg-muted/5">
+            <div className="flex items-center gap-2 mb-3 md:mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
               <Heart className="size-4" /> 心跳追踪 (Heartbeat)
             </div>
             {renderJson(snapshots.heartbeat || { loading: true })}
@@ -133,8 +133,8 @@ export default function DebugPage() {
         </div>
 
         {/* Right Column: RPC & Models */}
-        <div className="space-y-6">
-          <Card className="p-8 border-primary/20 bg-primary/5 shadow-xl shadow-primary/5">
+        <div className="space-y-4 md:space-y-6">
+          <Card className="p-4 md:p-8 border-primary/20 bg-primary/5 shadow-xl shadow-primary/5">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-primary/10 rounded-xl text-primary font-mono text-sm">JSON</div>
@@ -200,7 +200,7 @@ export default function DebugPage() {
             </div>
           </Card>
 
-          <Card className="p-6 border-border/50 overflow-hidden">
+          <Card className="p-4 md:p-6 border-border/50 overflow-hidden">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-purple-500/10 rounded-xl">
                 <BrainCircuit className="size-5 text-purple-500" />

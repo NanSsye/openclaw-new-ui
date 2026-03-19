@@ -160,11 +160,11 @@ export default function ChannelsPage() {
   }, [snapshot]);
 
   return (
-    <main className="p-8 min-h-full bg-muted/5 @container">
-      <div className="max-w-7xl mx-auto space-y-8 pb-12">
+    <main className="p-4 md:p-8 min-h-full bg-muted/5 @container">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">频道管理</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">频道管理</h1>
                 <p className="text-muted-foreground text-sm flex items-center gap-2">
                     <Zap className="size-3.5 text-orange-500" />
                     配置并监控与外部平台的通信连接状态及账号健康度。
@@ -182,7 +182,7 @@ export default function ChannelsPage() {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {flattenedAccounts.length > 0 ? (
             flattenedAccounts.map((account: any, i: number) => (
               <ChannelAccountCard 
@@ -339,14 +339,14 @@ function ChannelAccountCard({ data, onLogin, onLogout, onConfig, onRefresh }: { 
   const BrandIcon = data.brand.icon;
 
   return (
-    <Card className="group border-border/50 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 bg-background overflow-hidden relative rounded-[2rem]">
+    <Card className="group border-border/50 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 bg-background overflow-hidden relative rounded-2xl md:rounded-[2rem]">
       {/* 状态指示条 */}
       <div className={cn(
         "absolute top-0 left-0 w-full h-1",
         isHealthy ? "bg-green-500" : isWarning ? "bg-orange-500" : "bg-red-500"
       )} />
-      
-      <CardHeader className="p-6 pb-4">
+
+      <CardHeader className="p-4 md:p-6 pb-4">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 min-w-0">
                 <div className={cn(
@@ -386,7 +386,7 @@ function ChannelAccountCard({ data, onLogin, onLogout, onConfig, onRefresh }: { 
         </div>
       </CardHeader>
       
-      <CardContent className="px-6 pb-6 pt-2 space-y-6">
+      <CardContent className="px-4 md:px-6 pb-4 md:pb-6 pt-2 space-y-4 md:space-y-6">
         <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-2xl bg-muted/20 border border-border/30 flex flex-col justify-center">
                 <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block mb-1">运行状态</span>

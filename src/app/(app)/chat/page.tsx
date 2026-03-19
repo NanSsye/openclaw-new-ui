@@ -125,7 +125,7 @@ export default function ChatPage() {
   }, []);
   
   const [isCommandsOpen, setIsCommandsOpen] = useState(false);
-  const [isUsageOpen, setIsUsageOpen] = useState(false);
+  const [isUsageDropdownOpen, setIsUsageDropdownOpen] = useState(false);
   const [usageLoading, setUsageLoading] = useState(false);
   const [config, setConfig] = useState<any>(null);
   
@@ -182,27 +182,10 @@ export default function ChatPage() {
     }
   }, [client, connected, selectedModel]);
 
-  const fetchHistory = useCallback(async (key: string) => {
-    if (!client || !connected) return;
-    try {
-      const res: any = await client.request("chat.history", { sessionKey: key, limit: 100 });
-      setMessages(res.messages || []);
-      setIsTyping(false);
-    } catch (e) {
-      toast({ title: "加载历史失败", description: "无法同步漫游记录", variant: "destructive" });
-    }
-  }, [client, connected, toast]);
-
-  const activeModelData = useMemo(() => {
-    return models.find(m => m.id === selectedModel);
-  }, [models, selectedModel]);
-
-
-  const fetchUsage = async () => {
+  const fetchUsage = useCallback(async () => {
     if (!client || !connected) return;
     setUsageLoading(true);
     try {
-      // Usage can be a heavy request, give it more time
       const res: any = await client.request("sessions.usage", { limit: 100 }, 60000);
       if (res.sessions && Array.isArray(res.sessions)) {
         setSessions(prev => {
@@ -219,7 +202,23 @@ export default function ChatPage() {
     } finally {
       setUsageLoading(false);
     }
-  };
+  }, [client, connected]);
+
+  const fetchHistory = useCallback(async (key: string) => {
+    if (!client || !connected) return;
+    try {
+      const res: any = await client.request("chat.history", { sessionKey: key, limit: 100 });
+      setMessages(res.messages || []);
+      setIsTyping(false);
+    } catch (e) {
+      toast({ title: "加载历史失败", description: "无法同步漫游记录", variant: "destructive" });
+    }
+  }, [client, connected, toast]);
+
+  const activeModelData = useMemo(() => {
+    return models.find(m => m.id === selectedModel);
+  }, [models, selectedModel]);
+
 
   useEffect(() => {
     if (connected && client) {
@@ -234,16 +233,16 @@ export default function ChatPage() {
   }, [connected, client, activeSession]); // Added activeSession to dependencies for safety
 
   useEffect(() => {
-    if (isUsageOpen) {
-      fetchUsage();
-    }
-  }, [isUsageOpen, connected, client]);
-
-  useEffect(() => {
     if (showModelMenu) {
       fetchModels();
     }
   }, [showModelMenu, connected, client]);
+
+  useEffect(() => {
+    if (isUsageDropdownOpen) {
+      fetchUsage();
+    }
+  }, [isUsageDropdownOpen, connected, client]);
 
   useEffect(() => {
     if (!client) return;
@@ -467,43 +466,6 @@ export default function ChatPage() {
     </Dialog>
   );
 
-  const renderUsageModal = () => (
-    <Dialog open={isUsageOpen} onOpenChange={setIsUsageOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter">
-            <BarChart2 className="size-5 text-green-500" /> 用量统计
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-6 py-4 relative">
-          {usageLoading && (
-            <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
-                <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">正在计算中...</p>
-            </div>
-          )}
-          <div className="space-y-3">
-            {[
-                { label: "输入 Token", value: activeSessionData.usage?.input || 0, color: "bg-blue-500" },
-                { label: "输出 Token", value: activeSessionData.usage?.output || 0, color: "bg-green-500" }
-            ].map(row => (
-                <div key={row.label} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
-                    <span className="text-xs font-bold flex items-center gap-2 uppercase opacity-60">
-                        <div className={cn("size-2 rounded-full", row.color)} /> {row.label}
-                    </span>
-                    <span className="font-mono text-sm font-black">{formatContext(row.value)}</span>
-                </div>
-            ))}
-          </div>
-          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-widest text-primary/60">累计总计</span>
-            <span className="font-mono text-2xl font-black text-primary">{formatContext((activeSessionData.usage?.input || 0) + (activeSessionData.usage?.output || 0))}</span>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="flex h-full bg-muted/5 overflow-hidden">
         {mounted && document.getElementById('header-context-monitor-portal') && createPortal(
@@ -525,10 +487,7 @@ export default function ChatPage() {
         animate={{ opacity: 1 }} 
         className="flex-1 flex flex-col h-full overflow-hidden relative"
       >
-        {renderCommandsModal()}
-        {renderUsageModal()}
-        
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
             <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12 pb-32 sm:pb-40">
                 {messages.length === 0 && !isTyping && !streamingMessage && (
                     <div className="h-full flex flex-col items-center justify-center text-muted-foreground pt-40 opacity-20 select-none">
@@ -577,7 +536,7 @@ export default function ChatPage() {
             </div>
         </div>
 
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
@@ -585,34 +544,116 @@ export default function ChatPage() {
         >
             <div className="max-w-4xl mx-auto pointer-events-auto">
                 <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-2 sm:mb-4">
-                    <motion.div layout className="flex w-max items-center gap-1.5 sm:gap-3 px-1 sm:px-0 pb-1">
+                    <motion.div layout className="flex w-max items-center gap-1 px-1 pb-1">
+                        {/* Model Selector - Far Left with text */}
                         <div className="relative shrink-0">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button 
+                                    <Button
                                         variant="outline" size="sm"
-                                        className="h-7 sm:h-8 rounded-full bg-background/80 backdrop-blur-sm border-border/50 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all px-2.5 sm:px-4 shrink-0 focus-visible:ring-0"
+                                        className="h-7 rounded-full bg-background/80 backdrop-blur-sm border-border/50 text-[9px] font-medium px-2 hover:scale-105 transition-all shrink-0 focus-visible:ring-0 gap-1"
                                     >
-                                        <MessagesSquare className="size-3 lg:size-3.5 mr-1.5 opacity-50 shrink-0" />
-                                        <span className="max-w-[75px] sm:max-w-[120px] truncate">{activeSessionData.displayName || activeSessionData.label || activeSession}</span>
-                                        <ChevronDown className={cn("size-3 ml-1.5 opacity-30 shrink-0 transition-transform", showSessionMenu && "rotate-180")} />
+                                        <Brain className="size-3 text-muted-foreground" />
+                                        <span className="max-w-[80px] truncate">{selectedModel || "Model"}</span>
+                                        <ChevronDown className="size-2.5 opacity-40 shrink-0" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" side="top" sideOffset={12} className="w-64 p-2 border-border/50 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                    <div className="p-2.5 border-b border-border/40 text-[9px] font-medium uppercase opacity-40 tracking-widest pl-3 flex items-center gap-2 mb-1">
+                                        <Monitor className="size-3" /> 模型列表
+                                    </div>
+                                    <div className="max-h-60 overflow-y-auto p-1 py-1.5 custom-scrollbar">
+                                        {(() => {
+                                          const grouped: Record<string, typeof models> = {};
+                                          models.forEach(m => {
+                                            const provider = m.provider || m.config_key || m.owned_by || "unknown";
+                                            if (!grouped[provider]) grouped[provider] = [];
+                                            grouped[provider].push(m);
+                                          });
+                                          const getProviderColor = (provider: string) => {
+                                            const hash = provider.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+                                            const hue = hash % 360;
+                                            return `hsl(${hue}, 65%, 50%)`;
+                                          };
+                                          return Object.entries(grouped).map(([provider, providerModels]) => {
+                                            const color = getProviderColor(provider);
+                                            return (
+                                              <div key={provider}>
+                                                <div className="flex items-center gap-2 px-2.5 py-1.5 mt-1 first:mt-0">
+                                                  <div className="size-2 rounded-full" style={{ backgroundColor: color }} />
+                                                  <span className="text-[9px] font-medium uppercase tracking-widest opacity-40">{provider}</span>
+                                                </div>
+                                                {providerModels.map((m, i) => (
+                                                  <DropdownMenuItem
+                                                    key={`${m.id}-${i}`}
+                                                    onClick={() => {
+                                                      setSelectedModel(m.id);
+                                                      // Send /model command directly
+                                                      const cmdText = `/model ${m.id}`;
+                                                      const userMessage = {
+                                                        id: generateUUID(),
+                                                        role: "user",
+                                                        content: cmdText,
+                                                        createdAt: new Date().toISOString()
+                                                      };
+                                                      setMessages(prev => [...prev, userMessage]);
+                                                      setIsTyping(true);
+                                                      client?.request("chat.send", {
+                                                          sessionKey: activeSession,
+                                                          message: cmdText,
+                                                          idempotencyKey: userMessage.id
+                                                      }).catch(e => {
+                                                          setIsTyping(false);
+                                                          toast({ title: "命令执行失败", description: e.message, variant: "destructive" });
+                                                      });
+                                                    }}
+                                                    className={cn(
+                                                      "w-full text-left p-2.5 rounded-xl transition-all group flex items-start gap-3 cursor-pointer outline-none focus:bg-muted",
+                                                      selectedModel === m.id ? "border" : "border-transparent"
+                                                    )}
+                                                    style={selectedModel === m.id ? { backgroundColor: `${color}15`, borderColor: `${color}30` } : {}}
+                                                  >
+                                                    <div className="size-2 rounded-full mt-1.5" style={{ backgroundColor: color, opacity: 0.6 }} />
+                                                    <div className="flex flex-col min-w-0">
+                                                      <p className="text-[11px] truncate" style={selectedModel === m.id ? { color } : {}}>{m.name || m.id}</p>
+                                                    </div>
+                                                  </DropdownMenuItem>
+                                                ))}
+                                              </div>
+                                            );
+                                          });
+                                        })()}
+                                    </div>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Session Selector - Second from left with text */}
+                        <div className="relative shrink-0">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline" size="sm"
+                                        className="h-7 rounded-full bg-background/80 backdrop-blur-sm border-border/50 text-[9px] font-medium px-2 hover:scale-105 transition-all shrink-0 focus-visible:ring-0 gap-1"
+                                    >
+                                        <MessagesSquare className="size-3 text-muted-foreground" />
+                                        <span className="max-w-[60px] truncate">{activeSessionData.displayName || activeSessionData.label || activeSession.split(":").pop()}</span>
+                                        <ChevronDown className="size-2.5 opacity-40 shrink-0" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" side="top" sideOffset={12} className="w-72 p-2 border-border/50 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
                                     <div className="p-3 border-b border-border/40 flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 pl-1">会话列表</span>
+                                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground opacity-50 pl-1">会话列表</span>
                                         <Button variant="ghost" size="icon" className="size-6 rounded-lg text-primary hover:bg-primary/5" onClick={handleNewSession}><Plus className="size-3.5" /></Button>
                                     </div>
                                     <div className="max-h-64 overflow-y-auto space-y-1 p-1 custom-scrollbar">
                                         {(() => {
-                                          // Group sessions by agent prefix
                                           const grouped: Record<string, typeof sessions> = {};
                                           sessions.forEach(s => {
                                             const agentPrefix = s.key?.startsWith("agent:") ? s.key.split(":")[1] : "main";
                                             if (!grouped[agentPrefix]) grouped[agentPrefix] = [];
                                             grouped[agentPrefix].push(s);
                                           });
-                                          // Generate consistent color from agentId
                                           const getAgentColor = (agentId: string) => {
                                             const hash = agentId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
                                             const hue = hash % 360;
@@ -624,7 +665,7 @@ export default function ChatPage() {
                                             <div key={agentId}>
                                               <div className="flex items-center gap-2 px-2.5 py-1.5 mt-1 first:mt-0">
                                                 <div className="size-2 rounded-full" style={{ backgroundColor: color }} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{agentId}</span>
+                                                <span className="text-[9px] font-medium uppercase tracking-widest opacity-40">{agentId}</span>
                                               </div>
                                               {agentSessions.map(s => (
                                                 <DropdownMenuItem
@@ -638,7 +679,7 @@ export default function ChatPage() {
                                                 >
                                                   <Bot className="size-3.5 shrink-0" style={{ color, opacity: 0.6 }} />
                                                   <div className="flex-1 min-w-0 pr-2">
-                                                    <p className="text-[11px] font-bold truncate" style={activeSession === s.key ? { color } : {}}>{s.displayName || s.label || s.key.split(":").pop()}</p>
+                                                    <p className="text-[11px] truncate" style={activeSession === s.key ? { color } : {}}>{s.displayName || s.label || s.key.split(":").pop()}</p>
                                                     <p className="text-[9px] opacity-30 font-mono truncate">{s.key}</p>
                                                   </div>
                                                   {activeSession === s.key && <Check className="size-3" style={{ color }} />}
@@ -653,80 +694,100 @@ export default function ChatPage() {
                             </DropdownMenu>
                         </div>
 
+                        <div className="w-px h-4 bg-border/50 mx-0.5 shrink-0" />
+
+                        {/* Commands Dropdown - Icon only */}
                         <div className="relative shrink-0">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button 
-                                        variant="outline" size="sm" 
-                                        className="h-7 sm:h-8 rounded-full bg-background/80 backdrop-blur-sm border-border/50 text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-2.5 sm:px-4 hover:text-foreground transition-all shrink-0 focus-visible:ring-0"
+                                    <Button
+                                        variant="outline" size="sm"
+                                        className="size-7 rounded-full bg-background/80 backdrop-blur-sm border-border/50 px-0 hover:scale-105 transition-all shrink-0 focus-visible:ring-0"
                                     >
-                                        <Brain className="size-3 lg:size-3.5 mr-1.5 opacity-50 shrink-0" />
-                                        <span className="max-w-[85px] sm:max-w-[160px] truncate">{selectedModel || "Default"}</span> 
-                                        <ChevronDown className="size-3 ml-1.5 opacity-30 shrink-0" />
+                                        <SquareTerminal className="size-3.5 text-orange-500" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" side="top" sideOffset={12} className="w-64 p-2 border-border/50 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
-                                    <div className="p-2.5 border-b border-border/40 text-[9px] font-black uppercase opacity-40 tracking-widest pl-3 flex items-center gap-2 mb-1">
-                                        <Monitor className="size-3" /> 模型列表
+                                <DropdownMenuContent align="start" side="top" sideOffset={12} className="w-72 p-2 border-border/50 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 max-h-[60vh] overflow-y-auto">
+                                    <div className="p-2.5 border-b border-border/40 text-[9px] font-medium uppercase opacity-40 tracking-widest pl-3 flex items-center gap-2 mb-1">
+                                        <SquareTerminal className="size-3 text-orange-500" /> 命令控制台
                                     </div>
-                                    <div className="max-h-60 overflow-y-auto p-1 py-1.5 custom-scrollbar">
-                                        {(() => {
-                                          // Group models by provider
-                                          const grouped: Record<string, typeof models> = {};
-                                          models.forEach(m => {
-                                            const provider = m.provider || m.config_key || m.owned_by || "unknown";
-                                            if (!grouped[provider]) grouped[provider] = [];
-                                            grouped[provider].push(m);
-                                          });
-                                          // Generate consistent color from provider name
-                                          const getProviderColor = (provider: string) => {
-                                            const hash = provider.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-                                            const hue = hash % 360;
-                                            return `hsl(${hue}, 65%, 50%)`;
-                                          };
-                                          return Object.entries(grouped).map(([provider, providerModels]) => {
-                                            const color = getProviderColor(provider);
-                                            return (
-                                              <div key={provider}>
-                                                <div className="flex items-center gap-2 px-2.5 py-1.5 mt-1 first:mt-0">
-                                                  <div className="size-2 rounded-full" style={{ backgroundColor: color }} />
-                                                  <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{provider}</span>
+                                    <div className="space-y-0.5">
+                                        {SLASH_COMMANDS.map(cmd => (
+                                            <DropdownMenuItem
+                                                key={cmd.name}
+                                                onClick={() => handleCommandClick(cmd)}
+                                                className="w-full text-left p-2.5 rounded-xl transition-all flex items-center gap-3 cursor-pointer outline-none focus:bg-muted hover:bg-muted"
+                                            >
+                                                <div className="size-7 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+                                                    <cmd.icon className="size-3.5" />
                                                 </div>
-                                                {providerModels.map((m, i) => (
-                                                  <DropdownMenuItem
-                                                    key={`${m.id}-${i}`}
-                                                    onClick={() => { setSelectedModel(m.id); }}
-                                                    className={cn(
-                                                      "w-full text-left p-2.5 rounded-xl transition-all group flex items-start gap-3 cursor-pointer outline-none focus:bg-muted",
-                                                      selectedModel === m.id ? "border" : "border-transparent"
-                                                    )}
-                                                    style={selectedModel === m.id ? { backgroundColor: `${color}15`, borderColor: `${color}30` } : {}}
-                                                  >
-                                                    <div className="size-2 rounded-full mt-1.5" style={{ backgroundColor: color, opacity: 0.6 }} />
-                                                    <div className="flex flex-col min-w-0">
-                                                      <p className="text-[11px] font-bold truncate" style={selectedModel === m.id ? { color } : {}}>{m.name || m.id}</p>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[11px]">/{cmd.name}</p>
+                                                        {cmd.args && <span className="text-[8px] text-orange-500 font-mono">{cmd.args}</span>}
                                                     </div>
-                                                  </DropdownMenuItem>
-                                                ))}
-                                              </div>
-                                            );
-                                          });
-                                        })()}
+                                                    <p className="text-[9px] text-muted-foreground truncate">{cmd.description}</p>
+                                                </div>
+                                            </DropdownMenuItem>
+                                        ))}
                                     </div>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                        
-                        <Button variant="outline" size="sm" onClick={() => setIsCommandsOpen(true)} className="size-7 sm:size-8 rounded-full border-border/50 p-0 shadow-sm bg-background/80 backdrop-blur-sm hover:scale-105 transition-all shrink-0"><SquareTerminal className="size-3.5 text-orange-500" /></Button>
-                        <Button variant="outline" size="sm" onClick={() => setIsUsageOpen(true)} className="size-7 sm:size-8 rounded-full border-border/50 p-0 shadow-sm bg-background/80 backdrop-blur-sm hover:scale-105 transition-all shrink-0"><BarChart2 className="size-3.5 text-green-500" /></Button>
-                        
-                        <div className="w-px h-4 bg-border/50 mx-1 shrink-0" />
-                        
-                        <Button 
-                            variant="outline" size="sm" 
-                            onClick={() => setShowDetails(!showDetails)} 
+
+                        {/* Usage - Icon only Dropdown */}
+                        <div className="relative shrink-0">
+                            <DropdownMenu onOpenChange={(open) => setIsUsageDropdownOpen(open)}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline" size="sm"
+                                        className="size-7 rounded-full bg-background/80 backdrop-blur-sm border-border/50 px-0 hover:scale-105 transition-all shrink-0 focus-visible:ring-0"
+                                    >
+                                        <BarChart2 className="size-3.5 text-green-500" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" side="top" sideOffset={12} className="w-72 p-3 border-border/50 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
+                                    {usageLoading ? (
+                                        <div className="flex flex-col items-center justify-center gap-3 py-6">
+                                            <div className="size-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                            <p className="text-[10px] font-medium uppercase tracking-widest opacity-40">加载中...</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <BarChart2 className="size-4 text-green-500" />
+                                                <span className="text-[10px] font-medium uppercase tracking-widest">用量统计</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/50">
+                                                    <span className="text-[10px] flex items-center gap-2 opacity-60">
+                                                        <div className="size-2 rounded-full bg-blue-500" /> 输入 Token
+                                                    </span>
+                                                    <span className="font-mono text-xs font-medium">{formatContext(activeSessionData.usage?.input || 0)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/50">
+                                                    <span className="text-[10px] flex items-center gap-2 opacity-60">
+                                                        <div className="size-2 rounded-full bg-green-500" /> 输出 Token
+                                                    </span>
+                                                    <span className="font-mono text-xs font-medium">{formatContext(activeSessionData.usage?.output || 0)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between">
+                                                <span className="text-[9px] font-medium uppercase tracking-widest text-primary/60">累计总计</span>
+                                                <span className="font-mono text-lg font-bold text-primary">{formatContext((activeSessionData.usage?.input || 0) + (activeSessionData.usage?.output || 0))}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Details Toggle - Icon only */}
+                        <Button
+                            variant="outline" size="sm"
+                            onClick={() => setShowDetails(!showDetails)}
                             className={cn(
-                                "size-7 sm:size-8 rounded-full border-border/50 p-0 shadow-sm backdrop-blur-sm hover:scale-105 transition-all shrink-0",
+                                "size-7 rounded-full border-border/50 px-0 shadow-sm backdrop-blur-sm hover:scale-105 transition-all shrink-0",
                                 showDetails ? "bg-amber-500/10 border-amber-500/20 text-amber-500" : "bg-background/80 text-muted-foreground/40 grayscale"
                             )}
                         >
@@ -1043,8 +1104,8 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             {fromId && <span className="opacity-50">({fromId})</span>}
             {timestamp && <span className="opacity-50 font-medium">{timestamp}</span>}
         </div>
-        <div className={cn("px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border transition-all w-fit max-w-full", isUser ? "bg-indigo-50/30 border-indigo-100/40 rounded-tr-none text-indigo-950 font-medium" : "bg-background border-border/50 rounded-tl-none")}>
-            <div className="prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5">
+        <div className={cn("px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border transition-all max-w-[85%] sm:max-w-full overflow-wrap-break-word", isUser ? "bg-indigo-50/30 border-indigo-100/40 rounded-tr-none text-indigo-950 font-medium" : "bg-background border-border/50 rounded-tl-none")}>
+            <div className="prose prose-sm dark:prose-invert max-w-none w-full break-words overflow-wrap-break-word leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5 overflow-x-auto">
                 {parts.map((part, i) => renderPart(part, i))}
                 {isStreaming && <span className="inline-block w-1 h-3 sm:h-3.5 bg-primary animate-pulse ml-0.5 align-middle" />}
             </div>
