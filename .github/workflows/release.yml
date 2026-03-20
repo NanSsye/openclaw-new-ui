@@ -29,6 +29,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
       - name: Add Android platform
         run: npx cap init OpenClaw com.openclaw.app --web-dir=out && npx cap add android && npx cap sync android
 
