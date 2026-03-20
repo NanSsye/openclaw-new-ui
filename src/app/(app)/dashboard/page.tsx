@@ -46,8 +46,12 @@ export default function OverviewPage() {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">状态概览</h1>
-            <p className="text-xs md:text-sm text-muted-foreground">底层运行指标与安全连接快照。</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">状态概览</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm flex items-center gap-2">
+                <Activity className="size-3 text-green-500 shrink-0" />
+                <span className="hidden sm:inline">底层运行指标与安全连接快照</span>
+                <span className="sm:hidden">运行指标快照</span>
+            </p>
           </div>
           <div className={cn(
             "flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full border text-xs font-bold transition-all",
@@ -105,60 +109,27 @@ export default function OverviewPage() {
             </Card>
         </div>
 
-        {/* System Logs / Extra Modules (Optional placeholders) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
-            <Card className="lg:col-span-3 xl:lg:col-span-2 border-border/50 shadow-sm bg-background">
-                 <CardHeader className="p-4 md:p-6 border-b border-border/30 bg-muted/5 flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="text-sm md:text-base">实例心跳记录</CardTitle>
-                        <CardDescription className="text-xs">最近十分钟内的节点活跃状态</CardDescription>
+        <Card className="border-border/50 shadow-sm bg-background overflow-hidden flex flex-col">
+            <CardHeader className="p-4 md:p-6 border-b border-border/30 bg-muted/5">
+                <CardTitle className="text-sm md:text-base">快速操作</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
+                <Button variant="outline" className="w-full justify-start rounded-xl py-4 md:py-6 gap-3">
+                    <Activity className="size-4 text-primary" />
+                    <div className="text-left">
+                        <div className="text-sm font-bold">同步会话快照</div>
+                        <div className="text-[10px] text-muted-foreground">拉取当前最新的会话状态</div>
                     </div>
-                    <Database className="size-4 md:size-5 text-muted-foreground/40" />
-                 </CardHeader>
-                 <CardContent className="p-0 overflow-auto max-h-48 md:max-h-72">
-                    <table className="w-full text-xs md:text-sm text-left">
-                        <thead className="bg-muted/30 text-[10px] md:text-xs font-bold text-muted-foreground uppercase">
-                            <tr>
-                                <th className="px-4 md:px-6 py-3 md:py-4">时间</th>
-                                <th className="px-4 md:px-6 py-3 md:py-4">实例</th>
-                                <th className="px-4 md:px-6 py-3 md:py-4">状态</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/50">
-                            {presence.map((p, i) => (
-                                <tr key={i} className="hover:bg-muted/20">
-                                    <td className="px-4 md:px-6 py-3 md:py-4 font-mono text-xs text-muted-foreground italic">刚刚</td>
-                                    <td className="px-4 md:px-6 py-3 md:py-4 font-semibold text-sm">{p.client?.name || p.id}</td>
-                                    <td className="px-4 md:px-6 py-3 md:py-4 text-green-500">Success</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                 </CardContent>
-            </Card>
-
-            <Card className="border-border/50 shadow-sm bg-background overflow-hidden flex flex-col">
-                <CardHeader className="p-4 md:p-6 border-b border-border/30 bg-muted/5">
-                    <CardTitle className="text-sm md:text-base">快速操作</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
-                    <Button variant="outline" className="w-full justify-start rounded-xl py-4 md:py-6 gap-3">
-                        <Activity className="size-4 text-primary" />
-                        <div className="text-left">
-                            <div className="text-sm font-bold">同步会话快照</div>
-                            <div className="text-[10px] text-muted-foreground">拉取当前最新的会话状态</div>
-                        </div>
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start rounded-xl py-4 md:py-6 gap-3">
-                        <Monitor className="size-4 text-primary" />
-                        <div className="text-left">
-                            <div className="text-sm font-bold">切换节点模式</div>
-                            <div className="text-[10px] text-muted-foreground">更改全局节点的分配逻辑</div>
-                        </div>
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
+                </Button>
+                <Button variant="outline" className="w-full justify-start rounded-xl py-4 md:py-6 gap-3">
+                    <Monitor className="size-4 text-primary" />
+                    <div className="text-left">
+                        <div className="text-sm font-bold">切换节点模式</div>
+                        <div className="text-[10px] text-muted-foreground">更改全局节点的分配逻辑</div>
+                    </div>
+                </Button>
+            </CardContent>
+        </Card>
       </div>
     </main>
   );

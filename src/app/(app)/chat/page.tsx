@@ -498,8 +498,8 @@ export default function ChatPage() {
         {mounted && document.getElementById('header-context-monitor-portal') && createPortal(
             <div className="shrink-0 flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-muted/50 border border-border/50 text-[9px] sm:text-[11px] font-medium tracking-widest text-muted-foreground/80 shadow-sm cursor-help hover:bg-muted/80 transition-all font-mono" title="当前上下文窗口状态">
                 <div className={cn(
-                    "size-1.5 sm:size-2 rounded-full animate-pulse shadow-[0_0_8px_rgba(0,0,0,0.1)] shrink-0",
-                    ((activeSessionData?.totalTokens || health?.contextWeight || sessionUsage?.input || 0) / ((activeSessionData?.contextTokens || activeModelData?.contextWindow || config?.agents?.defaults?.contextTokens || health?.contextLimit || 128000) || 1)) > 0.8 ? "bg-red-500" : 
+                    "size-1.5 sm:size-2 rounded-full shrink-0",
+                    ((activeSessionData?.totalTokens || health?.contextWeight || sessionUsage?.input || 0) / ((activeSessionData?.contextTokens || activeModelData?.contextWindow || config?.agents?.defaults?.contextTokens || health?.contextLimit || 128000) || 1)) > 0.8 ? "bg-red-500" :
                     ((activeSessionData?.totalTokens || health?.contextWeight || sessionUsage?.input || 0) / ((activeSessionData?.contextTokens || activeModelData?.contextWindow || config?.agents?.defaults?.contextTokens || health?.contextLimit || 128000) || 1)) > 0.5 ? "bg-yellow-500" : "bg-emerald-500"
                 )} />
                 <span className="font-bold">{formatContext(activeSessionData?.totalTokens || health?.contextWeight || sessionUsage?.input || 0)}</span>
@@ -688,6 +688,7 @@ export default function ChatPage() {
                                             grouped[agentPrefix].push(s);
                                           });
                                           const getAgentColor = (agentId: string) => {
+                                            if (agentId === "main") return "hsl(199, 89%, 48%)"; // Sky Blue for main
                                             const hash = agentId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
                                             const hue = hash % 360;
                                             return `hsl(${hue}, 65%, 50%)`;

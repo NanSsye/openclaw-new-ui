@@ -130,9 +130,11 @@ export default function SkillsPage() {
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">扩展技能 (Skills)</h1>
-          <p className="text-muted-foreground mt-1">
-            总览并调整当前所有开启的扩展插件及三方工具 (Tools)。
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">扩展技能</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm flex items-center gap-2">
+            <Zap className="size-3 text-yellow-500 shrink-0" />
+            <span className="hidden sm:inline">总览并调整当前所有开启的扩展插件及三方工具</span>
+            <span className="sm:hidden">管理扩展插件</span>
           </p>
         </div>
         <div className="flex items-center gap-3">

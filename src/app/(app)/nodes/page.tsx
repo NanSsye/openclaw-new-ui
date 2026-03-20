@@ -85,9 +85,11 @@ export default function NodesPage() {
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">集群节点 (Nodes)</h1>
-          <p className="text-muted-foreground mt-1">
-            实时监控目前连接到主控制网关的所有代理工作节点及受控设备。
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">集群节点</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm flex items-center gap-2">
+            <Server className="size-3 text-cyan-500 shrink-0" />
+            <span className="hidden sm:inline">实时监控目前连接到主控制网关的所有代理工作节点及受控设备</span>
+            <span className="sm:hidden">监控工作节点</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="gap-2 rounded-xl">

@@ -157,139 +157,137 @@ export default function LogsPage() {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col animate-in fade-in duration-500 overflow-hidden">
-      {/* Search & Statistics Bar */}
-      <div className="px-4 md:px-8 py-3 md:py-4 border-b bg-background/50 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 shrink-0">
-        <div className="flex items-center gap-6 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-emerald-500/10 rounded-lg">
-              <Terminal className="size-5 text-emerald-500" />
-            </div>
-            <h1 className="text-lg md:text-xl font-bold whitespace-nowrap">系统日志 (Logs)</h1>
-          </div>
-          <div className="relative flex-1 max-w-md hidden lg:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input 
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              placeholder="全量搜索业务流水、错误栈或子系统..." 
-              className="pl-9 h-9 rounded-xl border-border/50 bg-muted/20"
-            />
-          </div>
+      {/* Header */}
+      <div className="px-3 md:px-6 py-2 md:py-3 border-b bg-background/50 backdrop-blur-xl shrink-0">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">系统日志</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm flex items-center gap-2">
+            <Terminal className="size-3 text-emerald-500 shrink-0" />
+            <span className="hidden sm:inline">实时监控系统运行日志与错误追踪</span>
+            <span className="sm:hidden">实时日志追踪</span>
+          </p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 border-r pr-4 mr-1 hidden sm:flex">
-            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">自动追踪</span>
-            <Switch 
-              checked={autoFollow} 
-              onCheckedChange={setAutoFollow} 
+      </div>
+
+      {/* Search & Controls Bar */}
+      <div className="px-3 md:px-6 py-2 border-b bg-muted/30 flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0">
+        {/* Mobile Search */}
+        <div className="relative flex-1 md:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="搜索日志..."
+            className="pl-8 h-8 text-xs rounded-lg border-border/50 bg-background/80"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <div className="flex items-center gap-1.5 border-r pr-2 mr-1">
+            <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap hidden sm:inline">自动追踪</span>
+            <Switch
+              checked={autoFollow}
+              onCheckedChange={setAutoFollow}
               className="scale-75"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchLogs(true)} disabled={loading} className="rounded-xl h-9">
-            <RefreshCw className={cn("size-3.5 mr-2", loading && "animate-spin")} /> 刷新
+          <Button variant="outline" size="sm" onClick={() => fetchLogs(true)} disabled={loading} className="h-7 text-[10px] md:text-xs rounded-lg px-2">
+            <RefreshCw className={cn("size-3", loading && "animate-spin")} />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} className="rounded-xl h-9">
-            <Download className="size-3.5 mr-2" /> 导出
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setEntries([])} className="rounded-xl h-9 text-muted-foreground hover:text-destructive">
-            <Trash2 className="size-3.5" />
+          <Button variant="ghost" size="sm" onClick={() => setEntries([])} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive rounded-lg">
+            <Trash2 className="size-3" />
           </Button>
         </div>
       </div>
 
       {/* Level Filter Bar */}
-      <div className="px-4 md:px-8 py-2 border-b bg-muted/10 flex items-center gap-2 overflow-x-auto whitespace-nowrap shrink-0 scrollbar-hide">
-        <Filter className="size-3.5 text-muted-foreground mr-2 shrink-0" />
+      <div className="px-3 md:px-6 py-1.5 border-b bg-muted/20 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap shrink-0 scrollbar-hide">
         {LEVELS.map(level => (
           <button
             key={level}
             onClick={() => toggleLevel(level)}
             className={cn(
-              "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all",
-              !excludedLevels.has(level) 
+              "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border transition-all shrink-0",
+              !excludedLevels.has(level)
                 ? LEVEL_COLORS[level]
-                : "bg-background text-muted-foreground/30 border-transparent scale-90"
+                : "bg-background/50 text-muted-foreground/30 border-transparent"
             )}
           >
             {level}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-4 text-[10px] text-muted-foreground font-mono">
-          <div className="flex items-center gap-1.5"><Activity className="size-3" /> 流速: {entries.length}/2000</div>
-          {cursor && <div className="flex items-center gap-1.5"><Database className="size-3" /> 偏移: {cursor.toString(16).toUpperCase()}</div>}
+        <div className="ml-auto flex items-center gap-2 text-[9px] text-muted-foreground/60 font-mono shrink-0">
+          <Activity className="size-2.5" />
+          <span className="hidden sm:inline">{entries.length}/2000</span>
         </div>
       </div>
 
       {/* Main Log Terminal Container */}
-      <div className="flex-1 px-4 md:px-8 pb-4 md:pb-8 overflow-hidden bg-muted/10">
-        <div 
+      <div className="flex-1 px-2 md:px-4 py-2 overflow-hidden bg-[#0a0a0a]">
+        <div
           ref={scrollRef}
-          className="h-full rounded-2xl border border-white/5 bg-[#0a0a0a] font-mono text-xs leading-relaxed selection:bg-emerald-500/30 overflow-y-auto"
+          className="h-full rounded-xl border border-white/5 font-mono text-[10px] md:text-xs leading-relaxed selection:bg-emerald-500/30 overflow-y-auto"
         >
-          <div className="p-6 space-y-0.5 min-h-full pb-20">
+          <div className="p-3 md:p-4 space-y-0 min-h-full pb-16">
             {filteredEntries.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center space-y-4 opacity-20 grayscale py-40">
-                <Activity className="size-12 stroke-1" />
-                <p className="text-sm">暂无匹配的系统日志流</p>
+              <div className="h-full flex flex-col items-center justify-center space-y-3 opacity-20 grayscale py-20">
+                <Activity className="size-10 stroke-1" />
+                <p className="text-xs">暂无匹配的系统日志</p>
               </div>
             ) : (
               filteredEntries.map((e, idx) => (
-                <div key={idx} className="flex gap-4 group hover:bg-white/5 px-2 -mx-2 transition-colors border-l-2 border-transparent hover:border-emerald-500/50">
-                  <span className="text-zinc-600 shrink-0 select-none w-16 text-right opacity-50 group-hover:opacity-100 transition-opacity">
-                    {e.time ? new Date(e.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "——"}
-                  </span>
-                  
-                  <span className={cn(
-                    "shrink-0 px-1 rounded h-fit min-w-[48px] text-center uppercase text-[10px] font-bold mt-0.5",
-                    e.level ? LEVEL_COLORS[e.level].split(' ')[0] : "text-zinc-500"
-                  )}>
-                    {e.level || "INFO"}
-                  </span>
-
-                  {e.subsystem && (
-                    <span className="shrink-0 text-emerald-500/70 group-hover:text-emerald-400 font-bold">
-                      [{e.subsystem}]
+                <div key={idx} className="flex flex-col gap-0.5 group hover:bg-white/5 px-2 -mx-2 py-1 transition-colors border-l-2 border-transparent hover:border-emerald-500/50">
+                  {/* Mobile: stacked layout, Desktop: inline */}
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <span className="text-zinc-600 shrink-0 select-none text-[9px] md:text-[10px] hidden sm:block">
+                      {e.time ? new Date(e.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "——"}
                     </span>
-                  )}
 
-                  <span className={cn(
-                    "flex-1 break-all whitespace-pre-wrap",
-                    e.level === "error" || e.level === "fatal" ? "text-red-400" : 
-                    e.level === "warn" ? "text-amber-200" : "text-zinc-300"
-                  )}>
-                    {e.message.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')}
-                  </span>
+                    <span className={cn(
+                      "shrink-0 px-1 rounded text-[8px] md:text-[9px] font-bold uppercase",
+                      e.level ? LEVEL_COLORS[e.level].split(' ')[0] : "text-zinc-500"
+                    )}>
+                      {e.level || "info"}
+                    </span>
 
-                  <div className="opacity-0 group-hover:opacity-100 shrink-0 flex items-center gap-2">
-                    <button 
-                      onClick={() => navigator.clipboard.writeText(e.raw)}
-                      className="p-1 hover:bg-white/10 rounded text-zinc-500 transition-all font-sans"
-                      title="复制原始 JSON"
-                    >
-                      <Download className="size-3" />
-                    </button>
+                    {e.subsystem && (
+                      <span className="shrink-0 text-emerald-500/60 text-[9px] hidden md:inline">
+                        [{e.subsystem}]
+                      </span>
+                    )}
+
+                    <span className={cn(
+                      "flex-1 break-words whitespace-pre-wrap text-[10px] md:text-[11px]",
+                      e.level === "error" || e.level === "fatal" ? "text-red-400" :
+                      e.level === "warn" ? "text-amber-200" : "text-zinc-400"
+                    )}>
+                      {e.message.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')}
+                    </span>
+                  </div>
+                  {/* Time on mobile */}
+                  <div className="flex items-center gap-1 sm:hidden">
+                    <span className="text-zinc-700 text-[8px]">{e.time ? new Date(e.time).toLocaleTimeString([], { hour12: false }) : ""}</span>
                   </div>
                 </div>
               ))
             )}
             {autoFollow && (
-              <div className="flex items-center gap-2 text-[10px] text-emerald-500/30 animate-pulse mt-8 border-t border-white/5 pt-4">
-                <div className="size-1 w-2 bg-emerald-500/30 rounded-full" />
-                实时日志监听中，已加载最新区块。
+              <div className="flex items-center gap-1.5 text-[9px] text-emerald-500/30 animate-pulse pt-2 border-t border-white/5">
+                <div className="size-1 w-1.5 bg-emerald-500/30 rounded-full" />
+                实时监听中
               </div>
             )}
           </div>
         </div>
       </div>
-      
-      {/* Sticky Bottom Scroll Info */}
+
+      {/* Sticky Bottom Scroll Button */}
       {!autoFollow && (
-        <button 
+        <button
           onClick={() => setAutoFollow(true)}
-          className="fixed bottom-12 right-12 bg-emerald-600 text-white p-3 rounded-full shadow-2xl shadow-emerald-600/50 hover:bg-emerald-700 transition-all animate-bounce"
+          className="fixed bottom-16 md:bottom-12 right-4 md:right-12 bg-emerald-600 text-white p-2.5 rounded-full shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 transition-all animate-bounce"
         >
-          <ArrowDownCircle className="size-6" />
+          <ArrowDownCircle className="size-5" />
         </button>
       )}
     </div>

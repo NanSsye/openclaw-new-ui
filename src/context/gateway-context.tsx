@@ -39,7 +39,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             console.log("[GatewayProvider] Connected!", hello);
             setConnected(true);
             setError(null);
-            setSnapshot(hello.payload || hello.snapshot || {}); 
+            // Include server info in snapshot for version display
+            const snapshotData = hello.payload || hello.snapshot || {};
+            setSnapshot({ ...snapshotData, server: hello.server });
             const sn = hello.payload || hello.snapshot;
             if (sn) {
                 if (sn.presence) setPresence(sn.presence);

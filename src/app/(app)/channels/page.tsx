@@ -162,27 +162,28 @@ export default function ChannelsPage() {
   return (
     <main className="p-4 md:p-8 min-h-full bg-muted/5 @container">
       <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-12">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">频道管理</h1>
-                <p className="text-muted-foreground text-sm flex items-center gap-2">
-                    <Zap className="size-3.5 text-orange-500" />
-                    配置并监控与外部平台的通信连接状态及账号健康度。
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">频道管理</h1>
+                <p className="text-muted-foreground text-xs sm:text-sm flex items-center gap-2">
+                    <Zap className="size-3 text-orange-500 shrink-0" />
+                    <span className="hidden sm:inline">配置并监控与外部平台的通信连接状态及账号健康度</span>
+                    <span className="xs:hidden">监控通信连接状态</span>
                 </p>
             </div>
-            <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => loadChannels(true)} disabled={loading} className="rounded-full gap-2 px-6 h-10 border-border/50 bg-background/80 backdrop-blur shadow-sm hover:bg-primary/5 hover:text-primary transition-all active:scale-95">
-                    <Radio className={cn("size-4", loading && "animate-pulse")} />
-                    探测连接
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Button variant="outline" size="sm" onClick={() => loadChannels(true)} disabled={loading} className="rounded-full gap-1 sm:gap-2 px-3 sm:px-4 h-8 sm:h-10 border-border/50 bg-background/80 backdrop-blur shadow-sm hover:bg-primary/5 hover:text-primary transition-all active:scale-95 text-xs sm:text-sm">
+                    <Radio className={cn("size-3 sm:size-4", loading && "animate-pulse")} />
+                    <span className="hidden sm:inline">探测连接</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => loadChannels(false)} disabled={loading} className="rounded-full gap-2 px-6 h-10 border-border/50 bg-background shadow-sm hover:border-primary/20 transition-all active:scale-95">
-                    <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-                    刷新列表
+                <Button variant="outline" size="sm" onClick={() => loadChannels(false)} disabled={loading} className="rounded-full gap-1 sm:gap-2 px-3 sm:px-4 h-8 sm:h-10 border-border/50 bg-background shadow-sm hover:border-primary/20 transition-all active:scale-95 text-xs sm:text-sm">
+                    <RefreshCw className={cn("size-3 sm:size-4", loading && "animate-spin")} />
+                    <span className="hidden sm:inline">刷新列表</span>
                 </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
           {flattenedAccounts.length > 0 ? (
             flattenedAccounts.map((account: any, i: number) => (
               <ChannelAccountCard 
@@ -195,13 +196,13 @@ export default function ChannelsPage() {
               />
             ))
           ) : (
-            <div className="col-span-full py-32 flex flex-col items-center justify-center border-2 border-dashed border-border/30 rounded-[2.5rem] bg-background/40 backdrop-blur-sm animate-in fade-in zoom-in duration-500">
-              <div className="size-24 rounded-full bg-muted/30 flex items-center justify-center mb-6 border border-border/50">
-                <Radio className="size-10 opacity-20" />
+            <div className="col-span-full py-16 sm:py-24 md:py-32 flex flex-col items-center justify-center border-2 border-dashed border-border/30 rounded-2xl sm:rounded-[2.5rem] bg-background/40 backdrop-blur-sm animate-in fade-in zoom-in duration-500">
+              <div className="size-16 sm:size-20 md:size-24 rounded-full bg-muted/30 flex items-center justify-center mb-4 sm:mb-6 border border-border/50">
+                <Radio className="size-8 sm:size-10 opacity-20" />
               </div>
-              <p className="text-muted-foreground font-medium text-lg">{loading ? "正在同步活跃频道..." : "暂未探测到活跃频道"}</p>
+              <p className="text-muted-foreground font-medium text-sm sm:text-base md:text-lg">{loading ? "正在同步活跃频道..." : "暂未探测到活跃频道"}</p>
               {!loading && (
-                <Button variant="link" className="text-primary mt-2" onClick={() => loadChannels(true)}>点此触发全网探测</Button>
+                <Button variant="link" className="text-primary mt-2 text-xs sm:text-sm" onClick={() => loadChannels(true)}>点此触发全网探测</Button>
               )}
             </div>
           )}
@@ -240,8 +241,8 @@ function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loa
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl rounded-[2.5rem] border-border/40 shadow-2xl overflow-hidden p-0">
-                <div className="bg-gradient-to-br from-primary/10 via-background/50 to-background p-8 border-b border-border/40">
+            <DialogContent className="sm:max-w-2xl rounded-2xl sm:rounded-[2.5rem] border-border/40 shadow-2xl overflow-hidden p-0 max-w-[calc(100vw-2rem)]">
+                <div className="bg-gradient-to-br from-primary/10 via-background/50 to-background p-4 sm:p-6 md:p-8 border-b border-border/40">
                     <DialogHeader>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
@@ -261,7 +262,7 @@ function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loa
                     </DialogHeader>
                 </div>
 
-                <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="p-4 sm:p-6 md:p-8 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {mode === "form" ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="col-span-full flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/30">
@@ -339,108 +340,116 @@ function ChannelAccountCard({ data, onLogin, onLogout, onConfig, onRefresh }: { 
   const BrandIcon = data.brand.icon;
 
   return (
-    <Card className="group border-border/50 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 bg-background overflow-hidden relative rounded-2xl md:rounded-[2rem]">
+    <Card className="group border-border/50 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 bg-background overflow-hidden relative rounded-xl md:rounded-2xl">
       {/* 状态指示条 */}
       <div className={cn(
-        "absolute top-0 left-0 w-full h-1",
+        "absolute top-0 left-0 w-full h-0.5 md:h-1",
         isHealthy ? "bg-green-500" : isWarning ? "bg-orange-500" : "bg-red-500"
       )} />
 
-      <CardHeader className="p-4 md:p-6 pb-4">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 min-w-0">
+      <CardHeader className="p-2 md:p-4 pb-1 md:pb-2">
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                 <div className={cn(
-                    "size-14 rounded-2xl flex items-center justify-center border border-border/50 shrink-0 transition-transform group-hover:scale-110 duration-300",
+                    "size-9 md:size-12 rounded-lg md:rounded-2xl flex items-center justify-center border border-border/50 shrink-0 transition-transform group-hover:scale-110 duration-300",
                     data.brand.bg
                 )}>
-                    <BrandIcon className={cn("size-7", data.brand.color)} />
+                    <BrandIcon className={cn("size-4 md:size-6", data.brand.color)} />
                 </div>
-                <div className="min-w-0">
-                    <CardTitle className="text-lg font-bold truncate group-hover:text-primary transition-colors capitalize">
-                        {(!data.name || data.name.toLowerCase() === "default") ? data.brand.name : data.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                        <CardTitle className="text-xs md:text-base font-bold truncate group-hover:text-primary transition-colors capitalize">
+                            {(!data.name || data.name.toLowerCase() === "default") ? data.brand.name : data.name}
+                        </CardTitle>
                         <Badge variant="outline" className={cn(
-                            "text-[9px] h-4 rounded-full border-none px-2 uppercase tracking-tight font-black",
-                            isHealthy ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : 
-                            (recentActivity || data.running) ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : 
+                            "text-[7px] md:text-[9px] h-4 rounded-full border-none px-1.5 md:px-2 uppercase tracking-tight font-black shrink-0",
+                            isHealthy ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" :
+                            (recentActivity || data.running) ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" :
                             "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
                         )}>
                             {statusLabel}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground font-mono truncate">
-                            {data.brand.name.toLowerCase() !== data.channelId.toLowerCase() && `${data.channelId} · `}
-                            {data.accountId}
-                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[9px] md:text-[10px] text-muted-foreground/60">
+                        <span className="font-mono truncate hidden sm:block">{data.channelId}</span>
+                        <span className="hidden sm:inline">·</span>
+                        <span className="font-mono truncate">{data.accountId}</span>
                     </div>
                 </div>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1 shrink-0">
                 {isWhatsApp && !isHealthy && (
-                    <Button variant="ghost" size="icon" onClick={onLogin} className="size-8 rounded-full border border-green-500/20 text-green-600 hover:bg-green-500/10 shadow-sm">
-                        <Key className="size-4" />
+                    <Button variant="ghost" size="icon" onClick={onLogin} className="size-7 md:size-8 rounded-full border border-green-500/20 text-green-600 hover:bg-green-500/10 shadow-sm">
+                        <Key className="size-3.5 md:size-4" />
                     </Button>
                 )}
-                <Button variant="ghost" size="icon" className="size-8 rounded-full text-muted-foreground hover:bg-muted"><MoreVertical className="size-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={onConfig} className="size-7 md:size-8 rounded-full text-muted-foreground hover:bg-muted">
+                    <Settings2 className="size-3.5 md:size-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="size-7 md:size-8 rounded-full text-muted-foreground hover:bg-muted">
+                    <MoreVertical className="size-3.5 md:size-4" />
+                </Button>
             </div>
         </div>
+
+        {/* 紧凑状态行 - 仅移动端 */}
+        <div className="flex items-center gap-3 mt-2 md:hidden">
+            <div className="flex items-center gap-1">
+                <div className={cn("size-1.5 rounded-full", data.running ? "bg-green-500" : "bg-muted-foreground/30")} />
+                <span className="text-[10px] font-medium">{data.running ? "运行中" : "已停止"}</span>
+            </div>
+            <div className="flex items-center gap-1">
+                <div className={cn("size-1.5 rounded-full", data.connected === true ? "bg-green-500" : data.running ? "bg-blue-500" : "bg-red-500")} />
+                <span className="text-[10px] font-medium">
+                    {data.connected === true ? "已连接" : data.running ? "连接就绪" : "未连接"}
+                </span>
+            </div>
+            {data.lastError && (
+                <ShieldAlert className="size-3 text-destructive" />
+            )}
+        </div>
       </CardHeader>
-      
-      <CardContent className="px-4 md:px-6 pb-4 md:pb-6 pt-2 space-y-4 md:space-y-6">
-        <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-2xl bg-muted/20 border border-border/30 flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block mb-1">运行状态</span>
-                <p className={cn("text-xs font-bold", data.running ? "text-foreground" : "text-muted-foreground")}>
+
+      <CardContent className="px-2 md:px-4 pb-2 md:pb-4 pt-0 hidden md:block">
+        {/* 桌面端详细状态 */}
+        <div className="grid grid-cols-2 gap-2">
+            <div className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 flex flex-col justify-center">
+                <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block mb-0.5">运行状态</span>
+                <p className={cn("text-[10px] md:text-xs font-bold", data.running ? "text-foreground" : "text-muted-foreground")}>
                     {data.running ? "正在后台运行" : "已停止运行"}
                 </p>
             </div>
-            <div className="p-3 rounded-2xl bg-muted/20 border border-border/30 flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block mb-1">网关连接</span>
+            <div className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-muted/20 border border-border/30 flex flex-col justify-center">
+                <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block mb-0.5">网关连接</span>
                 <p className={cn(
-                    "text-xs font-bold", 
-                    data.connected === true ? "text-green-500" : 
+                    "text-[10px] md:text-xs font-bold",
+                    data.connected === true ? "text-green-500" :
                     data.running ? "text-blue-500" : "text-destructive"
                 )}>
-                    {data.connected === true ? "连接正常" : 
+                    {data.connected === true ? "连接正常" :
                      data.running ? "连接就绪" : "尚未连接"}
                 </p>
             </div>
         </div>
 
         {data.lastError && (
-            <div className="p-3 rounded-2xl bg-destructive/5 border border-destructive/20 flex items-start gap-2">
-                <ShieldAlert className="size-3.5 text-destructive shrink-0 mt-0.5" />
+            <div className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-destructive/5 border border-destructive/20 flex items-start gap-2 mt-2">
+                <ShieldAlert className="size-3 md:size-3.5 text-destructive shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                    <span className="text-[10px] font-bold text-destructive uppercase tracking-wider block mb-0.5">最近报错信息</span>
-                    <p className="text-[10px] text-destructive/80 font-medium leading-relaxed truncate" title={data.lastError}>{data.lastError}</p>
+                    <span className="text-[9px] md:text-[10px] font-bold text-destructive uppercase tracking-wider block mb-0.5">最近报错信息</span>
+                    <p className="text-[9px] md:text-[10px] text-destructive/80 font-medium leading-relaxed truncate" title={data.lastError}>{data.lastError}</p>
                 </div>
             </div>
         )}
 
-        <div className="space-y-3">
-            <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                <span>最近活动记录</span>
-            </div>
-            <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="size-3" /> 最后上报时间</span>
-                    <span className="font-mono text-foreground/80">{data.lastInboundAt ? new Date(data.lastInboundAt).toLocaleTimeString() : "-"}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><Send className="size-3" /> 最后发出消息</span>
-                    <span className="font-mono text-foreground/80">{data.lastOutboundAt ? new Date(data.lastOutboundAt).toLocaleTimeString() : "-"}</span>
-                </div>
-            </div>
-        </div>
-
         <div className="pt-2 flex gap-2">
             {isWhatsApp && isHealthy && (
-                <Button variant="outline" size="sm" onClick={onLogout} className="flex-1 rounded-full text-[11px] font-bold h-9 border-destructive/20 text-destructive hover:bg-destructive/5 hover:border-destructive/40 transition-all gap-1.5">
-                    <LogOut size={14} /> 安全退出
+                <Button variant="outline" size="sm" onClick={onLogout} className="flex-1 rounded-full text-[10px] md:text-[11px] font-bold h-8 md:h-9 border-destructive/20 text-destructive hover:bg-destructive/5 hover:border-destructive/40 transition-all gap-1">
+                    <LogOut size={12} /> 安全退出
                 </Button>
             )}
-            <Button variant="outline" size="sm" onClick={onConfig} className="flex-1 rounded-full text-[11px] font-bold h-9 border-border/50 hover:bg-muted transition-all flex items-center gap-1.5">
-                <Settings2 size={14} /> 频道配置
+            <Button variant="outline" size="sm" onClick={onConfig} className="flex-1 rounded-full text-[10px] md:text-[11px] font-bold h-8 md:h-9 border-border/50 hover:bg-muted transition-all flex items-center gap-1">
+                <Settings2 size={12} /> 频道配置
             </Button>
         </div>
       </CardContent>

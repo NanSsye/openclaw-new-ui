@@ -50,6 +50,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { state: updateState, checkForUpdate } = useAppUpdate();
 
@@ -58,9 +59,22 @@ function AppContent({ children }: { children: React.ReactNode }) {
     setMobileSidebarOpen(false);
   }, [pathname]);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileSidebarOpen]);
+
   // Initial theme check and mount
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark') || 
+    setMounted(true);
+    const isDark = document.documentElement.classList.contains('dark') ||
                    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     setIsDarkMode(isDark);
     if (isDark) document.documentElement.classList.add('dark');
@@ -204,16 +218,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
              <Button variant="ghost" size="icon" onClick={() => setMobileSidebarOpen(true)} className="rounded-xl hover:bg-muted shrink-0 lg:hidden">
                <PanelLeft className="size-4 text-muted-foreground" />
              </Button>
-             <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-muted/50 rounded-full text-[9px] sm:text-[11px] font-medium border border-border/50">
-               <span className={cn("size-1.5 sm:size-2 rounded-full shrink-0", connected ? "bg-green-500" : "bg-red-500 animate-pulse")} />
-               <span className="hidden sm:inline">版本</span> {snapshot?.server?.version || "2026.3.11"}
-             </div>
              <div className={cn(
-               "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[11px] font-medium border shrink-0",
-               connected ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
-             )}>
-               <span className="hidden sm:inline">健康状况: </span>{connected ? "在线" : "离线"}
-             </div>
+              "flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-1 rounded-full text-[8px] sm:text-[11px] font-medium border",
+              connected ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+            )}>
+              <span className={cn("size-1.5 sm:size-2 rounded-full shrink-0", connected ? "bg-green-500" : "bg-red-500")} />
+              <span className="hidden sm:inline">版本</span> <span className={cn(connected ? "text-green-500" : "text-red-500")}>{snapshot?.server?.version || "2026.3.11"}</span>
+            </div>
              
              {/* Portal Target for Dynamic Page Components */}
              <div id="header-context-monitor-portal" className="flex items-center shrink-0" />
@@ -224,8 +235,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
                <DropdownMenuTrigger asChild>
                  <Button variant="ghost" size="icon" className="rounded-full size-8 sm:size-10 relative">
                    <Bell className="size-3.5 sm:size-4 text-muted-foreground" />
-                   {/* notification indicator */}
-                   <span className="absolute top-1.5 right-1.5 size-1.5 sm:size-2 bg-red-500 rounded-full border-2 border-background animate-pulse" />
                  </Button>
                </DropdownMenuTrigger>
                <DropdownMenuContent align="end" className="w-72 sm:w-80 p-0 border-border/50 shadow-2xl rounded-xl sm:rounded-2xl overflow-hidden mt-1 sm:mt-2">
