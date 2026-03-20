@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RefreshCcw, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 
@@ -47,6 +47,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const autoLoginAttemptedRef = useRef(false);
 
 
 
@@ -79,8 +80,9 @@ export default function LoginPage() {
           autoLogin: settings.autoLogin !== undefined ? settings.autoLogin : false,
         });
 
-        // Auto login if enabled and has URL/Token
-        if (settings.autoLogin && settings.gatewayUrl && token) {
+        // Auto login if enabled and has URL/Token (with ref to prevent double-trigger in StrictMode)
+        if (settings.autoLogin && settings.gatewayUrl && token && !autoLoginAttemptedRef.current) {
+            autoLoginAttemptedRef.current = true;
             setTimeout(() => {
                 gatewayForm.handleSubmit(onGatewaySubmit)();
             }, 500);
@@ -99,6 +101,7 @@ export default function LoginPage() {
   // Auto-login when credentials are saved and form is initialized
   useEffect(() => {
     if (!isInitialized) return;
+    if (autoLoginAttemptedRef.current) return; // Already attempted
 
     const savedToken = localStorage.getItem("openclaw.control.token.v1");
     const savedUrl = (() => {
@@ -122,8 +125,12 @@ export default function LoginPage() {
       return "agent:main:main";
     })();
 
+    // Capture autoLogin at effect start - don't watch reactively inside
+    const shouldAutoLogin = gatewayForm.getValues("autoLogin");
+
     // Only auto-login if we have SAVED credentials from a previous login
-    if (gatewayForm.watch("autoLogin") && savedToken && savedUrl) {
+    if (shouldAutoLogin && savedToken && savedUrl) {
+      autoLoginAttemptedRef.current = true;
       // Small delay to ensure form has processed the reset
       const timer = setTimeout(() => {
         // Set form values explicitly before submitting
@@ -136,7 +143,7 @@ export default function LoginPage() {
         gatewayForm.handleSubmit(onGatewaySubmit)();
       }, 600);
       return () => clearTimeout(timer);
-    } else if (gatewayForm.watch("autoLogin")) {
+    } else if (shouldAutoLogin) {
       // Auto-login is on but no saved credentials - turn it off
       gatewayForm.setValue("autoLogin", false);
     }
