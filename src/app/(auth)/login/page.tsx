@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import { RefreshCcw, Eye, EyeOff } from "lucide-react";
-import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -191,7 +190,9 @@ export default function LoginPage() {
     if (existingRaw) {
       try {
         existingSettings = JSON.parse(existingRaw);
-      } catch (e) {}
+      } catch {
+        // 解析失败时使用空配置
+      }
     }
 
     const settings = {

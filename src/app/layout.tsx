@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import ErrorBoundaryProvider from "@/components/error-boundary-client";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,8 +35,10 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${inter.className} antialiased`}>
-        {children}
-        <Toaster />
+        <ErrorBoundaryProvider>
+          {children}
+          <Toaster />
+        </ErrorBoundaryProvider>
       </body>
     </html>
   );

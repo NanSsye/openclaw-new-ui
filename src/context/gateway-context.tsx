@@ -3,12 +3,41 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { GatewayClient, GatewayHelloOk, GatewayEventFrame } from "@/lib/openclaw/gateway-client";
 
+export interface PresenceEntry {
+  id: string;
+  client?: {
+    name?: string;
+    version?: string;
+    platform?: string;
+    mode?: string;
+    userAgent?: string;
+  };
+  status?: string;
+  location?: string;
+  role?: string;
+}
+
+export interface HealthInfo {
+  uptime?: number;
+  cpuUsage?: number;
+  [key: string]: unknown;
+}
+
+interface SnapshotData {
+  server?: {
+    version?: string;
+    connId?: string;
+  };
+  version?: string;
+  [key: string]: unknown;
+}
+
 interface GatewayContextType {
   connected: boolean;
-  snapshot: any;
+  snapshot: SnapshotData | null;
   error: string | null;
-  presence: any[];
-  health: any;
+  presence: PresenceEntry[];
+  health: HealthInfo | null;
   client: GatewayClient | null;
 }
 
@@ -16,10 +45,10 @@ const GatewayContext = createContext<GatewayContextType | undefined>(undefined);
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [connected, setConnected] = useState(false);
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [presence, setPresence] = useState<any[]>([]);
-  const [health, setHealth] = useState<any>(null);
+  const [presence, setPresence] = useState<PresenceEntry[]>([]);
+  const [health, setHealth] = useState<HealthInfo | null>(null);
   const clientRef = useRef<GatewayClient | null>(null);
 
   useEffect(() => {

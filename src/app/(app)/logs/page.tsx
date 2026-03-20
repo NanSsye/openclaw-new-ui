@@ -22,7 +22,12 @@ interface LogEntry {
   level?: LogLevel | null;
   subsystem?: string | null;
   message: string;
-  meta?: any;
+  meta?: unknown;
+}
+
+interface LogsTailResponse {
+  lines?: string[];
+  cursor?: number;
 }
 
 const LEVELS: LogLevel[] = ["trace", "debug", "info", "warn", "error", "fatal"];
@@ -48,7 +53,7 @@ export default function LogsPage() {
   const [excludedLevels, setExcludedLevels] = useState<Set<LogLevel>>(new Set());
   
   const scrollRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const parseLogLine = (line: string): LogEntry => {
     if (!line.trim()) return { raw: line, message: line };
@@ -65,7 +70,9 @@ export default function LogsPage() {
           const cObj = JSON.parse(contextCandidate);
           subsystem = cObj.subsystem || cObj.module || null;
         }
-      } catch {}
+      } catch {
+        // Ignore JSON parse errors for context
+      }
       if (!subsystem && contextCandidate && contextCandidate.length < 100) subsystem = contextCandidate;
 
       let message = obj["1"] || obj.message || line;
@@ -73,6 +80,7 @@ export default function LogsPage() {
 
       return { raw: line, time, level, subsystem, message };
     } catch {
+      // Fallback for non-JSON lines
       return { raw: line, message: line };
     }
   };
@@ -81,7 +89,7 @@ export default function LogsPage() {
     if (!client || !connected) return;
     if (isReset) setLoading(true);
     try {
-      const res: any = await client.request("logs.tail", {
+      const res: LogsTailResponse = await client.request("logs.tail", {
         cursor: isReset ? undefined : (cursor ?? undefined),
         limit: 1000,
         maxBytes: 1000000
@@ -96,8 +104,9 @@ export default function LogsPage() {
       });
       
       if (typeof res.cursor === "number") setCursor(res.cursor);
-    } catch (err: any) {
-      if (isReset) toast({ title: "加载日志失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      if (isReset) toast({ title: "加载日志失败", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -105,7 +114,7 @@ export default function LogsPage() {
 
   useEffect(() => {
     fetchLogs(true);
-    return () => clearInterval(timerRef.current);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [client, connected]);
 
   useEffect(() => {
@@ -115,7 +124,7 @@ export default function LogsPage() {
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
-    return () => clearInterval(timerRef.current);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [autoFollow, cursor]);
 
   useEffect(() => {

@@ -6,13 +6,52 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Zap, RefreshCw, Search, Box, Info, AlertTriangle, 
+import {
+  Zap, RefreshCw, Search, Box, Info, AlertTriangle,
   CheckCircle2, Download, ShieldCheck, Key, ExternalLink,
   ChevronDown, ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+
+interface SkillMissing {
+  bins?: string[];
+  env?: string[];
+  config?: string[];
+}
+
+interface SkillInstallOption {
+  id: string;
+}
+
+interface Skill {
+  skillKey: string;
+  name: string;
+  description?: string;
+  source?: string;
+  disabled?: boolean;
+  bundled?: boolean;
+  eligible?: boolean;
+  blockedByAllowlist?: boolean;
+  missing?: SkillMissing;
+  install?: SkillInstallOption[];
+  primaryEnv?: string;
+  homepage?: string;
+  emoji?: string;
+}
+
+interface SkillGroup {
+  label: string;
+  items: Skill[];
+}
+
+interface SkillsStatusResponse {
+  skills?: Skill[];
+}
+
+interface SkillsInstallResponse {
+  message?: string;
+}
 
 
 
@@ -21,7 +60,7 @@ export default function SkillsPage() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<SkillsStatusResponse | null>(null);
   const [search, setSearch] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -36,8 +75,9 @@ export default function SkillsPage() {
     try {
       const res = await client.request("skills.status", {});
       setReport(res);
-    } catch (err: any) {
-      toast({ title: "加载技能失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      toast({ title: "加载技能失败", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -48,25 +88,25 @@ export default function SkillsPage() {
   }, [client, connected]);
 
   const skills = useMemo(() => {
-    const list = report?.skills || [];
+    const list: Skill[] = report?.skills || [];
     if (!search.trim()) return list;
     const s = search.toLowerCase();
-    return list.filter((item: any) => 
-      item.name.toLowerCase().includes(s) || 
-      item.description.toLowerCase().includes(s) || 
+    return list.filter((item: Skill) =>
+      item.name.toLowerCase().includes(s) ||
+      (item.description?.toLowerCase().includes(s) ?? false) ||
       item.skillKey.toLowerCase().includes(s)
     );
   }, [report, search]);
 
   const groups = useMemo(() => {
-    const map: Record<string, { label: string, items: any[] }> = {
+    const map: Record<string, SkillGroup> = {
       "workspace": { label: "工作区技能 (Workspace)", items: [] },
       "managed": { label: "托管技能 (Managed)", items: [] },
       "built-in": { label: "内置技能 (Built-in)", items: [] },
       "other": { label: "其他技能 (Other)", items: [] }
     };
 
-    skills.forEach((skill: any) => {
+    skills.forEach((skill: Skill) => {
       const source = skill.source || "";
       if (source.startsWith("workspace")) map["workspace"].items.push(skill);
       else if (source.startsWith("openclaw-managed")) map["managed"].items.push(skill);
@@ -84,8 +124,9 @@ export default function SkillsPage() {
       await client.request("skills.update", { skillKey, enabled: currentDisabled });
       toast({ title: currentDisabled ? "已开启该技能" : "已停用该技能" });
       fetchData();
-    } catch (err: any) {
-      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      toast({ title: "操作失败", description: message, variant: "destructive" });
     } finally {
       setBusyKey(null);
     }
@@ -100,27 +141,30 @@ export default function SkillsPage() {
       await client.request("skills.update", { skillKey, apiKey });
       toast({ title: "配置已保存", description: "API Key 已成功更新。" });
       fetchData();
-    } catch (err: any) {
-      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      toast({ title: "保存失败", description: message, variant: "destructive" });
     } finally {
       setBusyKey(null);
     }
   };
 
-  const installSkill = async (skill: any) => {
+  const installSkill = async (skill: Skill) => {
     if (!client) return;
+    const option = skill.install?.[0];
+    if (!option) return;
     setBusyKey(skill.skillKey);
     try {
-      const option = skill.install[0];
-      const res: any = await client.request("skills.install", {
+      const res: SkillsInstallResponse = await client.request("skills.install", {
         name: skill.name,
         installId: option.id,
         timeoutMs: 120000
       });
       toast({ title: "安装成功", description: res.message || "技能依赖已安装。" });
       fetchData();
-    } catch (err: any) {
-      toast({ title: "安装失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      toast({ title: "安装失败", description: message, variant: "destructive" });
     } finally {
       setBusyKey(null);
     }
@@ -176,7 +220,7 @@ export default function SkillsPage() {
             
             {!collapsedGroups[id] && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                {group.items.map((skill: any) => (
+                {group.items.map((skill: Skill) => (
                   <Card key={skill.skillKey} className="group relative overflow-hidden bg-background/50 border-border/50 hover:border-primary/30 transition-all duration-300">
                     <div className="p-4 md:p-6 space-y-3 md:space-y-4">
                       {/* Header */}
@@ -190,9 +234,9 @@ export default function SkillsPage() {
                             {skill.description}
                           </p>
                         </div>
-                        <Switch 
-                          checked={!skill.disabled} 
-                          onCheckedChange={(checked) => toggleSkill(skill.skillKey, skill.disabled)}
+                        <Switch
+                          checked={!skill.disabled}
+                          onCheckedChange={(checked) => toggleSkill(skill.skillKey, skill.disabled ?? false)}
                           disabled={busyKey === skill.skillKey}
                           className="data-[state=checked]:bg-emerald-500 scale-90"
                         />
@@ -211,21 +255,21 @@ export default function SkillsPage() {
                       </div>
 
                       {/* Requirements / Missing */}
-                      {(skill.missing.bins.length > 0 || skill.missing.env.length > 0 || skill.missing.config.length > 0) && (
+                      {((skill.missing?.bins?.length ?? 0) > 0 || (skill.missing?.env?.length ?? 0) > 0 || (skill.missing?.config?.length ?? 0) > 0) && (
                         <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10 space-y-2">
                           <div className="flex items-center gap-2 text-[11px] font-bold text-amber-500 uppercase tracking-tight">
                             <AlertTriangle className="size-3" />
                             缺失配置或环境
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {skill.missing.bins.map((b: string) => <Badge key={b} variant="destructive" className="text-[9px] py-0 px-1.5">Bin: {b}</Badge>)}
-                            {skill.missing.env.map((e: string) => <Badge key={e} variant="warning" className="text-[9px] py-0 px-1.5">ENV: {e}</Badge>)}
-                            {skill.missing.config.map((c: string) => <Badge key={c} variant="destructive" className="text-[9px] py-0 px-1.5">Config: {c}</Badge>)}
+                            {skill.missing?.bins?.map((b: string) => <Badge key={b} variant="destructive" className="text-[9px] py-0 px-1.5">Bin: {b}</Badge>)}
+                            {skill.missing?.env?.map((e: string) => <Badge key={e} variant="warning" className="text-[9px] py-0 px-1.5">ENV: {e}</Badge>)}
+                            {skill.missing?.config?.map((c: string) => <Badge key={c} variant="destructive" className="text-[9px] py-0 px-1.5">Config: {c}</Badge>)}
                           </div>
-                          {skill.install.length > 0 && skill.missing.bins.length > 0 && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                          {(skill.install?.length ?? 0) > 0 && (skill.missing?.bins?.length ?? 0) > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="w-full h-7 text-[10px] gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20 text-amber-600"
                               onClick={() => installSkill(skill)}
                               disabled={busyKey === skill.skillKey}

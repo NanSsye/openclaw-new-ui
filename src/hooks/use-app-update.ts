@@ -7,6 +7,19 @@ import { compareVersions } from "compare-versions";
 const GITHUB_REPO = "NanSsye/openclaw-new-ui";
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
+interface GithubAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+interface GithubRelease {
+  tag_name: string;
+  body: string;
+  published_at: string;
+  assets?: GithubAsset[];
+}
+
 export interface ReleaseInfo {
   version: string;
   tagName: string;
@@ -50,10 +63,10 @@ export function useAppUpdate() {
         timeout: 10000,
       });
 
-      const data = response.data;
+      const data = response.data as GithubRelease;
 
       // 查找 APK 资源
-      const apkAsset = data.assets?.find((asset: any) =>
+      const apkAsset = data.assets?.find((asset: GithubAsset) =>
         asset.name.endsWith(".apk")
       );
 
@@ -85,15 +98,17 @@ export function useAppUpdate() {
       }));
 
       return hasUpdate ? releaseInfo : null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = "检查更新失败";
 
-      if (error.response?.status === 403) {
-        errorMessage = "API 请求次数超限，请稍后再试";
-      } else if (error.response?.status === 404) {
-        errorMessage = "未找到 releases";
-      } else if (error.code === "ECONNABORTED") {
-        errorMessage = "请求超时，请检查网络连接";
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          errorMessage = "API 请求次数超限，请稍后再试";
+        } else if (error.response?.status === 404) {
+          errorMessage = "未找到 releases";
+        } else if (error.code === "ECONNABORTED") {
+          errorMessage = "请求超时，请检查网络连接";
+        }
       }
 
       setState(prev => ({

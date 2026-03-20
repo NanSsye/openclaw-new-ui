@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useGateway } from "@/context/gateway-context";
+import { useGateway, PresenceEntry } from "@/context/gateway-context";
 import { Cpu, Globe, Monitor, Shield, Zap, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ export default function InstancesPage() {
   );
 }
 
-function InstanceCard({ data }: { data: any }) {
+function InstanceCard({ data }: { data: PresenceEntry }) {
   const isOnline = data.status === "online" || !data.status;
 
   return (

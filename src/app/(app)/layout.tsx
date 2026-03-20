@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { GatewayProvider, useGateway } from "@/context/gateway-context";

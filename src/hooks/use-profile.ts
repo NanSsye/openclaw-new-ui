@@ -24,7 +24,9 @@ export function useProfile() {
         if (stored) {
           setProfile({ ...defaultProfile, ...JSON.parse(stored) });
         }
-      } catch (e) {}
+      } catch (e) {
+        // localStorage 解析失败时使用默认配置
+      }
     };
 
     loadProfile();

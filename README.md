@@ -87,6 +87,74 @@ docker run -d -p 3000:3000 --name openclaw-ui openclaw-new-ui
 
 ---
 
+## 📱 手机端访问
+
+### 网页访问（推荐）
+
+如果您已在服务器上部署了 OpenClaw New UI，可以通过手机浏览器直接访问：
+
+#### 局域网访问
+```url
+http://<服务器IP>:3000
+```
+
+#### 公网访问
+```url
+http://<您的域名>:3000
+# 或
+https://<您的域名>   # 如果配置了 HTTPS 反向代理
+```
+
+#### 配置域名访问
+
+**Nginx 反向代理配置示例：**
+
+```nginx
+server {
+    listen 80;
+    server_name openclaw.yourdomain.com;  # 替换为您的域名
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+**配置 HTTPS（Let's Encrypt 免费证书）：**
+```bash
+# 安装 Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# 获取证书并自动配置 Nginx
+sudo certbot --nginx -d openclaw.yourdomain.com
+```
+
+---
+
+### Android APK 安装
+
+如需将 OpenClaw New UI 安装为独立 App，请参考 [ANDROID_BUILD.md](ANDROID_BUILD.md) 构建 APK。
+
+**构建完成后：**
+1. 将 APK 文件传输到手机
+2. 在手机上打开 APK 文件安装
+3. 首次安装需要在设置中开启"允许安装未知来源应用"
+
+**APK 安装后配置：**
+首次打开 App 时，需要在设置页面填写您的 OpenClaw 网关地址：
+- **局域网**：填写 `http://<服务器IP>:<端口>`
+- **公网**：填写 `https://<您的域名>`
+
+> 注意：移动端 App 需要能访问到您的 OpenClaw 网关服务，请确保网关地址可从手机网络访问。
+
+---
+
 ## 🔐 环境配置
 
 OpenClaw New UI 采用**零后端环境要求**设计。所有网关连接参数（WebSocket URL、Token、密码等）均通过前端登录界面配置，并安全地持久化在您的浏览器 LocalStorage 中。

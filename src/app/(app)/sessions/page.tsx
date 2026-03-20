@@ -20,9 +20,20 @@ const getAgentColor = (agentId: string) => {
   return `hsl(${hue}, 65%, 50%)`;
 };
 
+interface Session {
+  key?: string;
+  label?: string;
+  scope?: string;
+  updatedAtMs?: number;
+  updatedAt?: number;
+  createdAt?: number;
+  timestamp?: number;
+  thinkingLevel?: string;
+}
+
 export default function SessionsPage() {
   const { connected, client } = useGateway();
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadSessions = async () => {
@@ -99,7 +110,7 @@ export default function SessionsPage() {
   );
 }
 
-function SessionItem({ data, color }: { data: any; color: string }) {
+function SessionItem({ data, color }: { data: Session; color: string }) {
   return (
     <Card className="border-border/50 shadow-sm hover:shadow-md transition-all bg-background overflow-hidden rounded-lg md:rounded-xl" style={{ borderLeftWidth: 3, borderLeftColor: color }}>
       <div className="flex items-center p-2 md:p-4 gap-2 md:gap-4">
@@ -109,7 +120,7 @@ function SessionItem({ data, color }: { data: any; color: string }) {
 
         <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 md:gap-2 mb-0.5">
-                <span className="font-bold text-xs md:text-base truncate">{data.label || data.key.split(":").pop()}</span>
+                <span className="font-bold text-xs md:text-base truncate">{data.label || data.key?.split(":").pop() || "unknown"}</span>
                 <div className="px-1.5 py-0.5 rounded-full text-[7px] md:text-[10px] font-bold uppercase tracking-wider shrink-0 hidden sm:flex" style={{ backgroundColor: `${color}15`, color }}>
                     {data.scope || "global"}
                 </div>

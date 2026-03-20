@@ -19,13 +19,45 @@ const formatCost = (num: number) => {
   return "$" + num.toFixed(4);
 };
 
+interface SessionUsage {
+  totalTokens?: number;
+  totalCost?: number;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+}
+
+interface DailyUsage {
+  date: string;
+  totalTokens?: number;
+  input?: number;
+}
+
+interface Session {
+  key?: string;
+  label?: string;
+  sessionId?: string;
+  model?: string;
+  usage?: SessionUsage;
+}
+
+interface SessionsUsageResponse {
+  sessions?: Session[];
+  totals?: SessionUsage;
+}
+
+interface CostResponse {
+  daily?: DailyUsage[];
+  totals?: SessionUsage;
+}
+
 export default function UsagePage() {
   const { client, connected } = useGateway();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [sessionsData, setSessionsData] = useState<any>(null);
-  const [costData, setCostData] = useState<any>(null);
+  const [sessionsData, setSessionsData] = useState<SessionsUsageResponse | null>(null);
+  const [costData, setCostData] = useState<CostResponse | null>(null);
   
   const [days] = useState(7); // default 7 days
 
@@ -76,10 +108,11 @@ export default function UsagePage() {
 
       setSessionsData(sessionsRes);
       setCostData(costRes);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "拉取 usage.cost 或 sessions.usage 失败";
       toast({
         title: "获取使用情况失败",
-        description: err.message || "拉取 usage.cost 或 sessions.usage 失败",
+        description: message,
         variant: "destructive",
       });
       console.error(err);
@@ -93,11 +126,11 @@ export default function UsagePage() {
   }, [client, connected, startDate, endDate]);
 
   const totals = costData?.totals || sessionsData?.totals || { totalTokens: 0, totalCost: 0, input: 0, output: 0, cacheRead: 0 };
-  const daily = costData?.daily || [];
-  const sessions = sessionsData?.sessions || [];
-  
+  const daily: DailyUsage[] = costData?.daily || [];
+  const sessions: Session[] = sessionsData?.sessions || [];
+
   // Calculate max daily token usage for the bar chart
-  const maxDailyTokens = Math.max(...daily.map((d: any) => d.totalTokens || 0), 100);
+  const maxDailyTokens = Math.max(...daily.map((d) => d.totalTokens || 0), 100);
 
   return (
     <div className="flex flex-col h-full p-4 md:p-6 gap-4 md:gap-6 max-w-7xl mx-auto overflow-y-auto animate-in fade-in duration-300 custom-scrollbar">
@@ -126,10 +159,10 @@ export default function UsagePage() {
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">总计 Token 消耗</p>
-            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatNumber(totals.totalTokens)}</div>
+            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatNumber(totals.totalTokens ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-2">
-              <span className="text-blue-500 font-medium">输入 {formatTokens(totals.input)}</span> · 
-              输出 {formatTokens(totals.output)}
+              <span className="text-blue-500 font-medium">输入 {formatTokens(totals.input ?? 0)}</span> ·
+              输出 {formatTokens(totals.output ?? 0)}
             </p>
           </div>
         </Card>
@@ -140,7 +173,7 @@ export default function UsagePage() {
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">估算金额花费</p>
-            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatCost(totals.totalCost)}</div>
+            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatCost(totals.totalCost ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-2 opacity-70">
               基于配置的模型单价计算
             </p>
@@ -153,9 +186,9 @@ export default function UsagePage() {
           </div>
           <div className="relative z-10">
             <p className="text-sm font-medium text-muted-foreground mb-1">Cache 命中量</p>
-            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatNumber(totals.cacheRead)}</div>
+            <div className="text-xl md:text-2xl font-bold tracking-tight text-foreground">{formatNumber(totals.cacheRead ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-2">
-              <span className="text-orange-500 font-medium">{totals.totalTokens > 0 ? ((totals.cacheRead / totals.totalTokens) * 100).toFixed(1) : 0}%</span> 缓存命中率
+              <span className="text-orange-500 font-medium">{(totals.totalTokens ?? 0) > 0 ? (((totals.cacheRead ?? 0) / (totals.totalTokens ?? 1)) * 100).toFixed(1) : 0}%</span> 缓存命中率
             </p>
           </div>
         </Card>
@@ -183,21 +216,21 @@ export default function UsagePage() {
               <div className="w-full text-center text-muted-foreground border-2 border-dashed border-border/50 rounded-xl h-full flex items-center justify-center">
                 暂无使用数据
               </div>
-            ) : daily.map((d: any, i: number) => {
-              const heightPct = Math.max((d.totalTokens / maxDailyTokens) * 100, 2);
+            ) : daily.map((d: DailyUsage, i: number) => {
+              const heightPct = Math.max(((d.totalTokens ?? 0) / maxDailyTokens) * 100, 2);
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
                   <div className="relative w-full flex justify-center h-[200px] items-end">
-                    <div 
+                    <div
                       className="w-full max-w-[40px] bg-primary/20 hover:bg-primary/40 rounded-t-md transition-all relative"
                       style={{ height: `${heightPct}%` }}
                     >
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-foreground text-background text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
-                        {formatTokens(d.totalTokens)} tks
+                        {formatTokens(d.totalTokens ?? 0)} tks
                       </div>
-                      <div 
-                         className="absolute bottom-0 w-full bg-blue-500/50 rounded-t-sm" 
-                         style={{ height: `${(d.input / (d.totalTokens || 1)) * 100}%` }} 
+                      <div
+                         className="absolute bottom-0 w-full bg-blue-500/50 rounded-t-sm"
+                         style={{ height: `${((d.input ?? 0) / (d.totalTokens || 1)) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -219,7 +252,7 @@ export default function UsagePage() {
                  无会话记录
                </div>
              ) : (
-               sessions.slice(0, 8).map((session: any, i: number) => (
+               sessions.slice(0, 8).map((session: Session, i: number) => (
                  <div key={session.key || i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
                    <div className="flex flex-col min-w-0 pr-3">
                      <span className="text-sm font-semibold truncate text-foreground">{session.label || session.sessionId || session.key}</span>

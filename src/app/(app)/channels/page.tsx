@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { 
-  Card, CardContent, CardHeader, CardTitle 
+import {
+  Card, CardContent, CardHeader, CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { 
-  Dialog, DialogContent, DialogHeader, 
-  DialogTitle, DialogDescription, DialogFooter 
+import {
+  Dialog, DialogContent, DialogHeader,
+  DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import { useGateway } from "@/context/gateway-context";
-import { 
-  Radio, AlertTriangle, CheckCircle2, 
+import {
+  Radio, AlertTriangle, CheckCircle2,
   RefreshCw, Power, Settings2, Key,
   MessageSquare, Send, Globe, ShieldAlert,
   Zap, Clock, XCircle, MoreVertical, LogOut,
@@ -23,6 +23,39 @@ import { cn } from "@/lib/utils";
 import { WhatsAppLoginModal } from "@/components/whatsapp-login-modal";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+
+interface ChannelLegacyStatus {
+  running?: boolean;
+  connected?: boolean;
+  lastError?: string;
+}
+
+interface ChannelAccount {
+  accountId?: string;
+  running?: boolean;
+  connected?: boolean;
+  lastError?: string;
+  lastInboundAt?: number;
+  name?: string;
+  channelId?: string;
+  brand?: ReturnType<typeof getChannelBrand>;
+}
+
+interface Snapshot {
+  channelAccounts?: Record<string, ChannelAccount[]>;
+  channelOrder?: string[];
+  channels?: Record<string, ChannelLegacyStatus>;
+}
+
+interface ConfigResponse {
+  config?: Record<string, unknown>;
+  hash?: string;
+}
+
+interface ChannelConfig {
+  enabled?: boolean;
+  [key: string]: unknown;
+}
 
 // 获取频道品牌的辅助函数
 const getChannelBrand = (id: string) => {
@@ -40,7 +73,7 @@ const getChannelBrand = (id: string) => {
 export default function ChannelsPage() {
   const { connected, client } = useGateway();
   const { toast } = useToast();
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -126,10 +159,11 @@ export default function ChannelsPage() {
   const flattenedAccounts = useMemo(() => {
     if (!snapshot?.channelAccounts) return [];
     const accounts: any[] = [];
-    const order = snapshot.channelOrder || Object.keys(snapshot.channelAccounts);
-    
+    const channelAccounts = snapshot.channelAccounts;
+    const order = snapshot.channelOrder || Object.keys(channelAccounts);
+
     order.forEach((channelId: string) => {
-        const channelData = snapshot.channelAccounts[channelId] || [];
+        const channelData = channelAccounts[channelId] || [];
         const legacyStatus = snapshot.channels?.[channelId] || {};
 
         if (channelData.length === 0) {

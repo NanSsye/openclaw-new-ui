@@ -78,24 +78,33 @@ const markdownComponents = {
                 style={oneDark}
                 language={match[1]}
                 PreTag="div"
-                className="rounded-xl my-4 text-xs"
+                className="rounded-xl my-4 text-xs overflow-x-auto"
                 {...props}
             >
                 {String(children).replace(/\n$/, "")}
             </SyntaxHighlighter>
         ) : (
-            <code className={cn("bg-muted px-1.5 py-0.5 rounded text-xs", className)} {...props}>
+            <code className={cn("bg-muted px-1.5 py-0.5 rounded text-xs break-all", className)} {...props}>
                 {children}
             </code>
         );
     },
-    p: ({ children }: any) => <p className="leading-relaxed mb-3 last:mb-0">{children}</p>,
-    ul: ({ children }: any) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
-    ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
-    a: ({ node, ...props }: any) => <a {...props} className="text-primary hover:underline font-bold" target="_blank" rel="noopener noreferrer" />,
-    h1: ({ children }: any) => <h1 className="text-xl font-black mt-6 mb-4">{children}</h1>,
-    h2: ({ children }: any) => <h2 className="text-lg font-black mt-5 mb-3">{children}</h2>,
-    h3: ({ children }: any) => <h3 className="text-base font-black mt-4 mb-2">{children}</h3>,
+    p: ({ children }: any) => <p className="leading-relaxed mb-3 last:mb-0 break-words overflow-wrap-break-word">{children}</p>,
+    ul: ({ children }: any) => <ul className="list-disc pl-5 mb-4 space-y-1 break-words">{children}</ul>,
+    ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-4 space-y-1 break-words">{children}</ol>,
+    li: ({ children }: any) => <li className="break-words leading-relaxed">{children}</li>,
+    a: ({ node, ...props }: any) => <a {...props} className="text-primary hover:underline font-bold break-all overflow-wrap-break-word" target="_blank" rel="noopener noreferrer" />,
+    h1: ({ children }: any) => <h1 className="text-xl font-black mt-6 mb-4 break-words">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-lg font-black mt-5 mb-3 break-words">{children}</h2>,
+    h3: ({ children }: any) => <h3 className="text-base font-black mt-4 mb-2 break-words">{children}</h3>,
+    table: ({ children }: any) => <table className="min-w-full divide-y divide-border overflow-auto my-4 text-xs block">{children}</table>,
+    thead: ({ children }: any) => <thead className="bg-muted/50">{children}</thead>,
+    tbody: ({ children }: any) => <tbody className="divide-y divide-border">{children}</tbody>,
+    tr: ({ children }: any) => <tr className="hover:bg-muted/30 transition-colors">{children}</tr>,
+    th: ({ children }: any) => <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">{children}</th>,
+    td: ({ children }: any) => <td className="px-3 py-2 whitespace-nowrap">{children}</td>,
+    strong: ({ children }: any) => <strong className="font-bold break-words">{children}</strong>,
+    em: ({ children }: any) => <em className="italic break-words">{children}</em>,
 };
 
 export default function ChatPage() {
@@ -121,7 +130,9 @@ export default function ChatPage() {
         const settings = JSON.parse(raw);
         if (settings.sessionKey) setActiveSession(settings.sessionKey);
         if (settings.chatShowThinking !== undefined) setShowDetails(settings.chatShowThinking);
-      } catch (e) {}
+      } catch {
+        // localStorage 解析失败时使用默认值
+      }
     }
   }, []);
 
@@ -322,7 +333,9 @@ export default function ChatPage() {
                 const settings = JSON.parse(raw);
                 settings.chatShowThinking = next;
                 localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
-            } catch (e) {}
+            } catch {
+                // localStorage 保存失败时静默忽略
+              }
         }
         return next;
     });
@@ -514,7 +527,7 @@ export default function ChatPage() {
         animate={{ opacity: 1 }} 
         className="flex-1 flex flex-col h-full overflow-hidden relative"
       >
-        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
             <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12 pb-32 sm:pb-40">
                 {messages.length === 0 && !isTyping && !streamingMessage && (
                     <div className="h-full flex flex-col items-center justify-center text-muted-foreground pt-40 opacity-20 select-none">
@@ -1188,7 +1201,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             {timestamp && <span className="opacity-50 font-medium">{timestamp}</span>}
         </div>
         <div className={cn(
-            "transition-all w-fit max-w-full",
+            "transition-all max-w-full",
             isUser ? "px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border bg-indigo-50/30 border-indigo-100/40 rounded-tr-none text-indigo-950 font-medium" :
             ((!showDetails && parts.every(p => {
                 const type = (p.type || "").toLowerCase();
@@ -1204,15 +1217,15 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             })) ? "bg-transparent border-none shadow-none px-0 py-0" : "px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border bg-background border-border/50 rounded-tl-none")
         )}>
             <div className={cn(
-                "prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5"
+                "prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5 overflow-visible"
             )}>
                 {parts.map((part, i) => renderPart(part, i))}
                 {isStreaming && (
-                  <motion.span 
+                  <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: [0, 1, 0] }}
                     transition={{ repeat: Infinity, duration: 0.8 }}
-                    className="inline-block w-1.5 h-4 sm:h-5 bg-primary/80 ml-1 align-middle shadow-[0_0_8px_rgba(var(--primary),0.5)] rounded-full" 
+                    className="inline-block w-1.5 h-4 sm:h-5 bg-primary/80 ml-1 align-middle shadow-[0_0_8px_rgba(var(--primary),0.5)] rounded-full"
                   />
                 )}
             </div>
@@ -1223,29 +1236,6 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
 });
 
 MessageItem.displayName = "MessageItem";
-
-function extractText(message: any): string | null {
-  if (!message) return null;
-  let raw = "";
-  if (typeof message === "string") {
-    raw = message;
-  } else if (message.text) {
-    raw = message.text;
-  } else if (message.delta) {
-    raw = message.delta;
-  } else if (Array.isArray(message.content)) {
-    raw = message.content
-      .filter((c: any) => c.type === "text")
-      .map((c: any) => c.text || c.content || "")
-      .join("");
-  } else if (typeof message.content === "string") {
-    raw = message.content;
-  }
-  
-  if (!raw) return null;
-  // Clean control tags and trim
-  return raw.replace(/<\/?final>/g, "").trim();
-}
 
 function formatContext(num: number): string {
     if (!num) return "0";
