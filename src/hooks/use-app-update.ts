@@ -32,13 +32,11 @@ export function useAppUpdate() {
   });
 
   const getCurrentVersion = useCallback((): string => {
-    // 从 package.json 获取版本
-    // Next.js 中需要通过这种方式或从环境变量获取
+    // 从环境变量获取版本（在 next.config.js 中设置）
     if (typeof window !== "undefined") {
-      const meta = document.querySelector('meta[name="version"]');
-      return meta?.getAttribute("content") || "1.0.0";
+      return process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
     }
-    return "1.0.0";
+    return "0.1.0";
   }, []);
 
   const checkForUpdate = useCallback(async (): Promise<ReleaseInfo | null> => {
