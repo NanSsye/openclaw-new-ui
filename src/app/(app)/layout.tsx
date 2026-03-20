@@ -71,7 +71,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("openclaw.control.settings.v1");
+    // We don't remove the settings here so that 'Remember Me' can work on the login page.
+    // The login page itself handles clearing settings if 'Remember Me' is unchecked during next login.
     sessionStorage.clear();
     toast({ title: "已注销", description: "您已成功退出登录。" });
     router.push("/login");

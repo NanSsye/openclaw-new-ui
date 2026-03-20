@@ -4,6 +4,22 @@
 
 ---
 
+## 🖼️ 界面预览 (Interface Preview)
+
+<p align="center">
+  <img src="img/登录界面.png" alt="登录界面" width="800">
+  <br>
+  <em>登录界面 - 极简流线型设计</em>
+</p>
+
+<p align="center">
+  <img src="img/操作界面.png" alt="操作界面" width="800">
+  <br>
+  <em>操作界面 - 动态流式渲染与简化模式</em>
+</p>
+
+---
+
 ## ✨ 核心特性
 
 - 🎨 **极致美学**：采用模块化玻璃拟态（Glassmorphism）设计，支持灵动的主题切换与细腻的交互动画。

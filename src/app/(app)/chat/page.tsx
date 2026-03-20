@@ -3,14 +3,14 @@
 import { useEffect, useState, useRef, useMemo, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
+import { 
   Send, User, Bot, Paperclip, ChevronDown, Check,
   Plus, Terminal, Wrench, BarChart2, SquareTerminal,
   MessagesSquare, Clock, XCircle, ChevronRight,
   MoreHorizontal, Trash2, Power, Settings2, Key,
   BarChart, ListTodo, FileText, Brain, ChevronDownCircle,
   RotateCcw, Box, StopCircle, Eye, Zap, Book, Download,
-  Monitor, X
+  Monitor, X, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,7 +120,7 @@ export default function ChatPage() {
       try {
         const settings = JSON.parse(raw);
         if (settings.sessionKey) setActiveSession(settings.sessionKey);
-        if (typeof settings.chatShowThinking === "boolean") setShowDetails(settings.chatShowThinking);
+        if (settings.chatShowThinking !== undefined) setShowDetails(settings.chatShowThinking);
       } catch (e) {}
     }
   }, []);
@@ -301,13 +301,31 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: isTyping || streamingMessage ? "auto" : "smooth"
+        });
     }
   }, [messages, streamingMessage, isTyping]);
 
   const handleOpenSidebar = useCallback((content: string) => {
     setSidebarContent(content);
     setSidebarOpen(true);
+  }, []);
+
+  const toggleDetails = useCallback(() => {
+    setShowDetails(prev => {
+        const next = !prev;
+        const raw = localStorage.getItem("openclaw.control.settings.v1");
+        if (raw) {
+            try {
+                const settings = JSON.parse(raw);
+                settings.chatShowThinking = next;
+                localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
+            } catch (e) {}
+        }
+        return next;
+    });
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -519,14 +537,20 @@ export default function ChatPage() {
                   />
                 ))}
                 {isTyping && streamingMessage === null && (
-                  <div className="flex items-start gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-start gap-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <div className="size-11 rounded-[1.2rem] bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                      <Bot className="size-6 text-primary animate-pulse" />
+                      <div className="relative">
+                        <Bot className="size-6 text-primary animate-pulse" />
+                        <div className="absolute -inset-1 bg-primary/20 blur-sm rounded-full animate-ping" />
+                      </div>
                     </div>
-                    <div className="flex gap-2 p-5 rounded-[2rem] bg-muted/20 border border-border/50">
-                      <div className="size-1.5 rounded-full bg-primary/40 animate-bounce duration-700" style={{ animationDelay: '0ms' }} />
-                      <div className="size-1.5 rounded-full bg-primary/40 animate-bounce duration-700" style={{ animationDelay: '200ms' }} />
-                      <div className="size-1.5 rounded-full bg-primary/40 animate-bounce duration-700" style={{ animationDelay: '400ms' }} />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-1.5 p-4 rounded-[1.5rem] bg-muted/10 border border-border/40 w-fit">
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0 }} className="size-1.5 rounded-full bg-primary/30" />
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="size-1.5 rounded-full bg-primary/30" />
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="size-1.5 rounded-full bg-primary/30" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-primary/40 pl-2 animate-pulse">OpenClaw is thinking...</p>
                     </div>
                   </div>
                 )}
@@ -794,7 +818,7 @@ export default function ChatPage() {
                         {/* Details Toggle - Icon only */}
                         <Button
                             variant="outline" size="sm"
-                            onClick={() => setShowDetails(!showDetails)}
+                            onClick={toggleDetails}
                             className={cn(
                                 "size-7 rounded-full border-border/50 px-0 shadow-sm backdrop-blur-sm hover:scale-105 transition-all shrink-0",
                                 showDetails ? "bg-amber-500/10 border-amber-500/20 text-amber-500" : "bg-background/80 text-muted-foreground/40 grayscale"
@@ -1022,9 +1046,15 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
                         </div>
                         <span className="font-black text-[13px] uppercase tracking-tight">{part.name || "Tool Call"}</span>
                     </div>
-                    <Badge variant="outline" className="text-[8px] font-black uppercase border-orange-500/20 text-orange-600 bg-orange-500/5 px-2 py-0.5">Exec</Badge>
+                    {!showDetails ? (
+                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-black text-emerald-600 uppercase">
+                            <Check className="size-2" /> Done
+                         </div>
+                    ) : (
+                        <Badge variant="outline" className="text-[8px] font-black uppercase border-orange-500/20 text-orange-600 bg-orange-500/5 px-2 py-0.5">Exec</Badge>
+                    )}
                 </div>
-                {argsStr && argsStr !== "{}" && (
+                {showDetails && argsStr && argsStr !== "{}" && (
                     <div className="p-4 font-mono text-[10px] leading-relaxed text-muted-foreground/70 bg-background/20 break-all select-all">
                         {argsStr}
                     </div>
@@ -1034,9 +1064,24 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     }
 
     if (isToolResult) {
-        if (!showDetails) return null; // In compact mode, we only show the call row
         const resContent = part.content || part.text || part.result || "";
         const contentJson = typeof resContent === "string" ? resContent : JSON.stringify(resContent, null, 2);
+
+        if (!showDetails) {
+            return (
+                <div key={index} className="my-1.5 flex items-center gap-3 px-3 py-2 rounded-2xl bg-primary/5 border border-primary/10 w-fit max-w-full opacity-60">
+                    <div className="size-6 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                        <CheckCircle2 className="size-3 text-emerald-600" />
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <span className="font-mono text-[10px] font-bold text-primary truncate">SYSTEM OUTPUT</span>
+                        <div className="size-1 rounded-full bg-primary/20" />
+                        <span className="font-mono text-[9px] truncate opacity-50 max-w-[150px] italic">JSON Metadata Result</span>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div key={index} className="my-3 rounded-[1.5rem] border border-border/40 bg-muted/5 overflow-hidden shadow-sm group transition-all duration-500 hover:border-emerald-500/30">
                 <div className="flex items-center justify-between px-5 py-3.5 bg-muted/10 border-b border-border/30">
@@ -1073,6 +1118,23 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             if (isStreaming) return <span className="opacity-0">...</span>;
             return null;
         }
+
+        // Technical noise detection for simplified mode
+        if (!showDetails && (text.trim().startsWith("{") || text.includes("<EXTERNAL_UNTRUSTED_CONTENT"))) {
+            return (
+                <div key={index} className="my-1.5 flex items-center gap-3 px-3 py-2 rounded-2xl bg-primary/5 border border-primary/10 w-fit max-w-full opacity-60">
+                    <div className="size-6 rounded-lg bg-orange-500/10 flex items-center justify-center border border-orange-500/20 shrink-0">
+                        <Terminal className="size-3 text-orange-600" />
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <span className="font-mono text-[10px] font-bold text-orange-600 truncate">SYSTEM DATA</span>
+                        <div className="size-1 rounded-full bg-orange-500/20" />
+                        <span className="font-mono text-[9px] truncate opacity-40 max-w-[150px] italic">Technical payload collapsed</span>
+                    </div>
+                </div>
+            );
+        }
+
         text = text.replace(/<\/?final>/g, "").trim();
         if (!text) return null;
         return (
@@ -1085,6 +1147,17 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     // Ultimate fallback for unknown complex parts
     let textContent = part.text || part.content || (typeof part === 'object' ? JSON.stringify(part) : String(part));
     if (!textContent || textContent === "{}" || textContent === '{"type":"text","text":""}') return null;
+    
+    // If it's pure JSON technical content and not in detail mode, hide it or simplify
+    if (!showDetails && (textContent.trim().startsWith("{") || textContent.includes("<EXTERNAL_UNTRUSTED_CONTENT"))) {
+        return (
+            <div key={index} className="my-1.5 flex items-center gap-3 px-3 py-2 rounded-2xl bg-muted/40 border border-border/40 w-fit max-w-full opacity-60">
+                <Box className="size-3 text-muted-foreground/60" />
+                <span className="font-mono text-[9px] truncate opacity-40 italic">Hidden system bloat</span>
+            </div>
+        );
+    }
+
     textContent = textContent.replace(/<\/?final>/g, "").trim();
     if (!textContent) return null;
     
@@ -1113,10 +1186,34 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             {fromId && <span className="opacity-50">({fromId})</span>}
             {timestamp && <span className="opacity-50 font-medium">{timestamp}</span>}
         </div>
-        <div className={cn("px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border transition-all max-w-[85%] sm:max-w-full overflow-wrap-break-word", isUser ? "bg-indigo-50/30 border-indigo-100/40 rounded-tr-none text-indigo-950 font-medium" : "bg-background border-border/50 rounded-tl-none")}>
-            <div className="prose prose-sm dark:prose-invert max-w-none w-full break-words overflow-wrap-break-word leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5 overflow-x-auto">
+        <div className={cn(
+            "transition-all w-fit max-w-full",
+            isUser ? "px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border bg-indigo-50/30 border-indigo-100/40 rounded-tr-none text-indigo-950 font-medium" :
+            ((!showDetails && parts.every(p => {
+                const type = (p.type || "").toLowerCase();
+                const text = (p.text || (typeof p === 'string' ? p : "")).trim();
+                // Ignore truly empty parts
+                if (!text && !p.name && !p.arguments && !p.args && !p.thinking && !p.thought) return true;
+
+                const isToolCall = ["tool_call", "toolcall", "tool_use", "tooluse", "tool-call"].includes(type) || (p.name && (p.arguments || p.args));
+                const isToolResult = ["tool_result", "toolresult", "tool-result"].includes(type) || (p.toolCallId || p.tool_call_id);
+                const isThinking = ["thinking", "thought", "reasoning"].includes(type) || p.thinking || p.thought;
+                const isTechNoise = (["text", ""].includes(type) && (text.startsWith("{") || text.includes("<EXTERNAL_UNTRUSTED_CONTENT")));
+                return isToolCall || isToolResult || isThinking || isTechNoise || !text;
+            })) ? "bg-transparent border-none shadow-none px-0 py-0" : "px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-[1.2rem] sm:rounded-[1.8rem] shadow-sm border bg-background border-border/50 rounded-tl-none")
+        )}>
+            <div className={cn(
+                "prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5"
+            )}>
                 {parts.map((part, i) => renderPart(part, i))}
-                {isStreaming && <span className="inline-block w-1 h-3 sm:h-3.5 bg-primary animate-pulse ml-0.5 align-middle" />}
+                {isStreaming && (
+                  <motion.span 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 0.8 }}
+                    className="inline-block w-1.5 h-4 sm:h-5 bg-primary/80 ml-1 align-middle shadow-[0_0_8px_rgba(var(--primary),0.5)] rounded-full" 
+                  />
+                )}
             </div>
         </div>
       </div>
