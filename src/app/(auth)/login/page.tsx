@@ -446,36 +446,6 @@ export default function LoginPage() {
             {error && <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg">{error}</div>}
 
 {/* Save & Auto-login Options */}
-            <div className="flex flex-col gap-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="rememberMe" className="text-sm font-medium cursor-pointer">记住登录信息</Label>
-                  <p className="text-[10px] text-muted-foreground">保存网关令牌到本地</p>
-                </div>
-                <Switch
-                  id="rememberMe"
-                  checked={gatewayForm.watch("rememberMe")}
-                  onCheckedChange={(checked) => {
-                    gatewayForm.setValue("rememberMe", checked);
-                    if (!checked) gatewayForm.setValue("autoLogin", false);
-                  }}
-                />
-              </div>
-              {gatewayForm.watch("rememberMe") && (
-                <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="autoLogin" className="text-sm font-medium cursor-pointer">自动登录</Label>
-                    <p className="text-[10px] text-muted-foreground">下次打开时自动连接</p>
-                  </div>
-                  <Switch
-                    id="autoLogin"
-                    checked={gatewayForm.watch("autoLogin")}
-                    onCheckedChange={(checked) => gatewayForm.setValue("autoLogin", checked)}
-                  />
-                </div>
-              )}
-            </div>
-
             <div className="flex gap-3 pt-2">
               <Button type="submit" className="flex-1 h-12 text-base font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10 active:scale-95 transition-all" disabled={isLoading}>
                 {isLoading ? "正在连接..." : "连 接"}

@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  History, LayoutDashboard, MessageSquare, Radio, 
+import {
+  History, LayoutDashboard, MessageSquare, Radio,
   Settings, Terminal, Zap, LogOut, ChevronRight,
   Database, Activity, Clock, Bell, Sun, Moon, User, Cpu, Server,
-  PanelLeft, PanelLeftClose, SquareTerminal
+  PanelLeft, PanelLeftClose, SquareTerminal, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserProfileDialog } from "@/components/user-profile-dialog";
 import { AccountSettingsDialog } from "@/components/account-settings-dialog";
+import { AppUpdateDialog } from "@/components/app-update-dialog";
 import { useProfile } from "@/hooks/use-profile";
+import { useAppUpdate } from "@/hooks/use-app-update";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -41,12 +43,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { connected, snapshot } = useGateway();
   const { profile } = useProfile();
-  
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const { state: updateState, checkForUpdate } = useAppUpdate();
 
   // Auto-close mobile sidebar when navigating
   useEffect(() => {
@@ -288,6 +293,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
                     <Settings className="size-4 opacity-60" />
                     <span>账户设置</span>
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setUpdateOpen(true)}>
+                    {updateState.status === "checking" ? (
+                      <RefreshCw className="size-4 opacity-60 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-4 opacity-60" />
+                    )}
+                    <span>检查更新</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
                     className="rounded-lg gap-3 py-2.5 text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer font-bold"
@@ -309,6 +322,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       
       <UserProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <AccountSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <AppUpdateDialog open={updateOpen} onOpenChange={setUpdateOpen} />
     </div>
   );
 }
