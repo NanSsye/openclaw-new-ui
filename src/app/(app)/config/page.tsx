@@ -14,6 +14,7 @@ import {
   Database, Bell, Terminal, Palette, Layers, Box
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Editor from "@monaco-editor/react";
 
 const SECTIONS = [
   { id: "agents", label: "代理中心 (Agents)", icon: Cpu, desc: "管理多智能体身份、模型及心跳" },
@@ -245,15 +246,31 @@ export default function ConfigPage() {
         <div className="flex-1 overflow-hidden bg-background">
           {mode === "raw" ? (
             <div className="h-full relative font-mono text-sm group">
-              <textarea
+              <Editor
+                height="100%"
+                defaultLanguage="json"
                 value={rawConfig}
-                onChange={(e) => setRawConfig(e.target.value)}
-                spellCheck={false}
-                className="w-full h-full p-8 bg-background resize-none focus:outline-none leading-relaxed text-muted-foreground focus:text-foreground transition-colors selection:bg-primary/20"
-                placeholder="// 在此直接编辑 JSON5 格式配置..."
+                theme="vs-dark"
+                onChange={(v) => setRawConfig(v || "")}
+                options={{
+                    fontSize: 14,
+                    fontFamily: "'Fira Code', 'Monaco', monospace",
+                    padding: { top: 32 },
+                    lineNumbers: "on",
+                    roundedSelection: true,
+                    scrollBeyondLastLine: false,
+                    readOnly: false,
+                    cursorStyle: "line",
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    bracketPairColorization: { enabled: true },
+                    smoothScrolling: true,
+                    cursorBlinking: "smooth",
+                    renderLineHighlight: "all",
+                }}
               />
-              <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Badge variant="outline" className="bg-background/80 backdrop-blur">JSON EDITOR</Badge>
+              <div className="absolute top-4 right-10 flex items-center gap-2 z-10">
+                <Badge variant="outline" className="bg-background/80 backdrop-blur border-primary/20 text-primary">JSON EDITOR</Badge>
                 {isDirty && <Badge variant="warning">未保存更改</Badge>}
               </div>
             </div>
