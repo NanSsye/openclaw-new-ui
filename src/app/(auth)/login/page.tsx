@@ -12,9 +12,11 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatedCharacters } from "@/components/ui/animated-characters";
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
+import { cn } from "@/lib/utils";
 
 const gatewaySchema = z.object({
   websocketUrl: z.string().url({ message: "请输入有效的 WebSocket URL。" }),
@@ -40,6 +42,9 @@ export default function LoginPage() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
 
 
@@ -56,23 +61,76 @@ export default function LoginPage() {
   // Load saved settings on mount
   useEffect(() => {
     const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
+    const savedToken = localStorage.getItem("openclaw.control.token.v1");
     if (rawSettings) {
       try {
         const settings = JSON.parse(rawSettings);
         gatewayForm.reset({
           websocketUrl: settings.gatewayUrl || "",
-          gatewayToken: sessionStorage.getItem("openclaw.control.token.v1") || "",
+          gatewayToken: savedToken || "",
           password: "",
           sessionSecret: settings.sessionKey || "agent:main:main",
         });
+        if (savedToken) {
+          setRememberMe(true);
+          setAutoLogin(true);
+        }
       } catch (e) {
         console.error("Failed to parse settings", e);
       }
     }
-  }, []); // Only run on mount to prevent resetting user edits during re-renders
+    setIsInitialized(true);
+  }, [gatewayForm]);
 
   const gatewayPassword = gatewayForm.watch("password");
   const websocketUrl = gatewayForm.watch("websocketUrl");
+  const gatewayToken = gatewayForm.watch("gatewayToken");
+
+  // Auto-login when credentials are saved and form is initialized
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const savedToken = localStorage.getItem("openclaw.control.token.v1");
+    const savedUrl = (() => {
+      const raw = localStorage.getItem("openclaw.control.settings.v1");
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          return s.gatewayUrl || "";
+        } catch {}
+      }
+      return "";
+    })();
+    const savedSessionKey = (() => {
+      const raw = localStorage.getItem("openclaw.control.settings.v1");
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          return s.sessionKey || "agent:main:main";
+        } catch {}
+      }
+      return "agent:main:main";
+    })();
+
+    // Only auto-login if we have SAVED credentials from a previous login
+    if (autoLogin && savedToken && savedUrl) {
+      // Small delay to ensure form has processed the reset
+      const timer = setTimeout(() => {
+        // Set form values explicitly before submitting
+        gatewayForm.setValue("gatewayToken", savedToken);
+        gatewayForm.setValue("websocketUrl", savedUrl);
+        gatewayForm.setValue("sessionSecret", savedSessionKey);
+        // Also save to sessionStorage for GatewayProvider
+        sessionStorage.setItem("openclaw.control.token.v1", savedToken);
+        // Submit
+        gatewayForm.handleSubmit(onGatewaySubmit)();
+      }, 600);
+      return () => clearTimeout(timer);
+    } else if (autoLogin) {
+      // Auto-login is on but no saved credentials - turn it off
+      setAutoLogin(false);
+    }
+  }, [isInitialized, autoLogin, gatewayForm]);
 
   // Auto-extract token from URL if present
   useEffect(() => {
@@ -100,24 +158,33 @@ export default function LoginPage() {
     }
   }, [websocketUrl, gatewayForm]);
 
-  const persistSettings = (data: any) => {
+  const persistSettings = (data: any, saveToken: boolean) => {
     const KEY = "openclaw.control.settings.v1";
+    // Preserve existing settings, only update connection-related fields
+    const existingRaw = localStorage.getItem(KEY);
+    const existingSettings = existingRaw ? JSON.parse(existingRaw) : {};
     const settings = {
+      ...existingSettings,
       gatewayUrl: data.websocketUrl || "",
       sessionKey: data.sessionSecret || "main",
       lastActiveSessionKey: "main",
-      theme: "system",
-      chatFocusMode: false,
-      chatShowThinking: true,
-      splitRatio: 0.6,
-      navCollapsed: false,
-      navGroupsCollapsed: {},
-      locale: "zh-CN",
+      theme: existingSettings.theme || "system",
+      chatFocusMode: existingSettings.chatFocusMode ?? false,
+      chatShowThinking: existingSettings.chatShowThinking ?? true,
+      splitRatio: existingSettings.splitRatio ?? 0.6,
+      navCollapsed: existingSettings.navCollapsed ?? false,
+      navGroupsCollapsed: existingSettings.navGroupsCollapsed || {},
+      locale: existingSettings.locale || "zh-CN",
     };
     localStorage.setItem(KEY, JSON.stringify(settings));
-    
-    if (data.gatewayToken) {
+
+    if (saveToken && data.gatewayToken) {
+      localStorage.setItem("openclaw.control.token.v1", data.gatewayToken);
+      // Also save to sessionStorage so GatewayProvider can read it
       sessionStorage.setItem("openclaw.control.token.v1", data.gatewayToken);
+    } else {
+      localStorage.removeItem("openclaw.control.token.v1");
+      sessionStorage.removeItem("openclaw.control.token.v1");
     }
   };
 
@@ -129,15 +196,16 @@ export default function LoginPage() {
     try {
       console.log("Gateway Login:", values);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      persistSettings(values);
+      persistSettings(values, rememberMe);
       router.push("/dashboard");
-      toast({ 
-        title: "网关连接成功", 
-        description: "已成功建立 WebSocket 链接。",
-        duration: 2000 
+      toast({
+        title: "网关连接成功",
+        description: rememberMe ? "已保存登录信息，下次将自动登录。" : "已成功建立 WebSocket 链接。",
+        duration: 2000
       });
     } catch (err: any) {
       setError(err.message || "网关连接失败。");
+      setAutoLogin(false);
     } finally {
       setIsLoading(false);
     }
@@ -325,8 +393,39 @@ export default function LoginPage() {
 
             {error && <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg">{error}</div>}
 
-            <div className="flex gap-3 pt-4">
-              <InteractiveHoverButton type="submit" text={isLoading ? "正在连接..." : "连 接"} className="flex-1 h-12 text-base font-medium" disabled={isLoading} />
+            {/* Save & Auto-login Options */}
+            <div className="flex flex-col gap-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="rememberMe" className="text-sm font-medium cursor-pointer">记住登录信息</Label>
+                  <p className="text-[10px] text-muted-foreground">保存网关令牌到本地</p>
+                </div>
+                <Switch
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => {
+                    setRememberMe(checked);
+                    if (!checked) setAutoLogin(false);
+                  }}
+                />
+              </div>
+              {rememberMe && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="autoLogin" className="text-sm font-medium cursor-pointer">自动登录</Label>
+                    <p className="text-[10px] text-muted-foreground">下次打开时自动连接</p>
+                  </div>
+                  <Switch
+                    id="autoLogin"
+                    checked={autoLogin}
+                    onCheckedChange={setAutoLogin}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <InteractiveHoverButton type="submit" text={isLoading ? "正在连接..." : autoLogin && !!localStorage.getItem("openclaw.control.token.v1") ? "自动登录中..." : "连 接"} className="flex-1 h-12 text-base font-medium" disabled={isLoading || (autoLogin && !!localStorage.getItem("openclaw.control.token.v1"))} />
               <Button type="button" variant="outline" className="h-12 w-12 px-0 rounded-2xl" onClick={() => gatewayForm.reset()}>
                 <RefreshCcw className="size-5" />
               </Button>

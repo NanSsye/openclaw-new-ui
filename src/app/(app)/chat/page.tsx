@@ -112,17 +112,26 @@ export default function ChatPage() {
   
   const [activeSession, setActiveSession] = useState("main");
   const [showDetails, setShowDetails] = useState(true);
-  
-  // Load active session from local storage on mount
+
+  // Load settings from local storage on mount
   useEffect(() => {
     const raw = localStorage.getItem("openclaw.control.settings.v1");
     if (raw) {
       try {
         const settings = JSON.parse(raw);
         if (settings.sessionKey) setActiveSession(settings.sessionKey);
+        if (typeof settings.chatShowThinking === "boolean") setShowDetails(settings.chatShowThinking);
       } catch (e) {}
     }
   }, []);
+
+  // Save showDetails to localStorage when it changes
+  useEffect(() => {
+    const raw = localStorage.getItem("openclaw.control.settings.v1");
+    const settings = raw ? JSON.parse(raw) : {};
+    settings.chatShowThinking = showDetails;
+    localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
+  }, [showDetails]);
   
   const [isCommandsOpen, setIsCommandsOpen] = useState(false);
   const [isUsageDropdownOpen, setIsUsageDropdownOpen] = useState(false);
