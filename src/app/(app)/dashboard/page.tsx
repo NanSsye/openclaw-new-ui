@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useGateway } from "@/context/gateway-context";
-import { 
-  Zap, CheckCircle2, Globe, Shield, 
+import {
+  Zap, CheckCircle2, Globe, Shield,
   Settings2, Key, Languages, Palette,
-  Activity, Monitor, Database, AlertTriangle
+  Activity, Monitor, Database, AlertTriangle,
+  Github, QrCode, ExternalLink
 } from "lucide-react";
 
 export default function OverviewPage() {
@@ -127,6 +128,48 @@ export default function OverviewPage() {
                         <div className="text-[10px] lg:text-xs text-muted-foreground">更改全局节点的分配逻辑</div>
                     </div>
                 </Button>
+            </CardContent>
+        </Card>
+
+        {/* 关于与联系 */}
+        <Card className="border-border/50 shadow-sm bg-background overflow-hidden flex flex-col rounded-xl lg:rounded-2xl">
+            <CardHeader className="p-4 lg:p-6 border-b border-border/30 bg-muted/5">
+                <CardTitle className="text-sm lg:text-base flex items-center gap-2">
+                    <QrCode className="size-4 lg:size-5" />
+                    关于与联系
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 lg:p-6">
+                <div className="flex flex-col sm:flex-row gap-6 items-center">
+                    {/* GitHub */}
+                    <a
+                        href="https://github.com/NanSsye/openclaw-new-ui"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 rounded-xl border border-border/50 hover:bg-muted/50 hover:border-primary/20 transition-all w-full sm:w-auto"
+                    >
+                        <Github className="size-6 lg:size-8 text-foreground" />
+                        <div className="text-left">
+                            <div className="text-sm font-bold">开源项目</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                GitHub <ExternalLink className="size-3" />
+                            </div>
+                        </div>
+                    </a>
+
+                    {/* 公众号 */}
+                    <div className="flex items-center gap-3 p-4 rounded-xl border border-border/50">
+                        <img
+                            src="/公众号.jpg"
+                            alt="公众号"
+                            className="size-16 lg:size-20 rounded-lg object-cover"
+                        />
+                        <div className="text-left">
+                            <div className="text-sm font-bold">微信公众号</div>
+                            <div className="text-xs text-muted-foreground">关注获取最新资讯</div>
+                        </div>
+                    </div>
+                </div>
             </CardContent>
         </Card>
       </div>
