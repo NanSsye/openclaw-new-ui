@@ -35,8 +35,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Add Android platform
-        run: npx cap init OpenClaw com.openclaw.app --web-dir=out && npx cap add android && npx cap sync android
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Build APK
         run: cd android && ./gradlew assembleRelease
