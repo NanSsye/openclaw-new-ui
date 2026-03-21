@@ -1,0 +1,33 @@
+workflows:
+  ios-workflow:
+    name: iOS Build
+    max_build_duration: 60
+    environment:
+      ios_signing:
+        # 使用自动代码签名，需要在 Codemagic 中配置 Apple Developer 账号
+        distribution_type: auto
+        bundle_identifier: com.openclaw.app
+      vars:
+        XCODE_WORKSPACE: "App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        APP_ID: "com.openclaw.app"
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Install Capacitor iOS
+        script: |
+          npm install @capacitor/ios
+          npx cap sync ios
+      - name: Build iOS project
+        script: |
+          cd ios/App && xcodebuild build \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -archive-path build/App.xcarchive \
+            -exportArchive \
+            -exportOptionsPlist ExportOptions.plist
+    artifacts:
+      - build/*.ipa
+      - build/*.xcarchive
