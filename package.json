@@ -12,6 +12,7 @@
     "@capacitor/android": "^8.2.0",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
     "@capawesome/capacitor-app-update": "^8.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@monaco-editor/react": "^4.7.0",

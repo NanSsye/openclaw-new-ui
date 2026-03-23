@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { RefreshCcw, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { getStoredProfile, saveStoredProfile } from "@/hooks/use-profile";
 import { AnimatedCharacters } from "@/components/ui/animated-characters";
-import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
-import { cn } from "@/lib/utils";
 
 const gatewaySchema = z.object({
+  username: z.string().trim().min(1, { message: "请输入用户名。" }),
   websocketUrl: z.string().min(1, { message: "请输入网关 URL。" }),
   gatewayToken: z.string().min(1, { message: "请输入网关令牌。" }),
   password: z.string().optional().or(z.literal("")),
@@ -28,12 +28,23 @@ const gatewaySchema = z.object({
 
 
 type GatewayFormValues = {
+  username: string;
   websocketUrl: string;
   gatewayToken: string;
   password?: string;
   sessionSecret: string;
   rememberMe: boolean;
   autoLogin: boolean;
+};
+
+type StoredSettings = {
+  gatewayUrl?: string;
+  sessionKey?: string;
+  rememberMe?: boolean;
+  autoLogin?: boolean;
+  chatShowThinking?: boolean;
+  theme?: string;
+  locale?: string;
 };
 
 export default function LoginPage() {
@@ -53,6 +64,7 @@ export default function LoginPage() {
   const gatewayForm = useForm<GatewayFormValues>({
     resolver: zodResolver(gatewaySchema),
     defaultValues: {
+      username: "",
       websocketUrl: "",
       gatewayToken: "",
       password: "",
@@ -62,15 +74,81 @@ export default function LoginPage() {
     },
   });
 
+  const persistSettings = useCallback((data: GatewayFormValues) => {
+    const KEY = "openclaw.control.settings.v1";
+    const TOKEN_KEY = "openclaw.control.token.v1";
+
+    if (!data.rememberMe) {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
+      return;
+    }
+
+    const existingRaw = localStorage.getItem(KEY);
+    let existingSettings: StoredSettings = {};
+    if (existingRaw) {
+      try {
+        existingSettings = JSON.parse(existingRaw) as StoredSettings;
+      } catch {
+        // 解析失败时使用空配置
+      }
+    }
+
+    const settings: StoredSettings = {
+      ...existingSettings,
+      gatewayUrl: data.websocketUrl || existingSettings.gatewayUrl || "",
+      sessionKey: data.sessionSecret || existingSettings.sessionKey || "main",
+      rememberMe: data.rememberMe,
+      autoLogin: data.autoLogin,
+      // Default fallback for critical UI settings if not already present
+      chatShowThinking: existingSettings.chatShowThinking !== undefined ? existingSettings.chatShowThinking : true,
+      theme: existingSettings.theme || "system",
+      locale: existingSettings.locale || "zh-CN",
+    };
+    localStorage.setItem(KEY, JSON.stringify(settings));
+
+    if (data.gatewayToken) {
+      localStorage.setItem(TOKEN_KEY, data.gatewayToken);
+      sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
+    }
+  }, []);
+
+  const onGatewaySubmit = useCallback(async (values: GatewayFormValues) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      console.log("Gateway Login:", values);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      persistSettings(values);
+      saveStoredProfile({ nickname: values.username.trim() });
+      router.push("/dashboard");
+      toast({
+        title: "网关连接成功",
+        description: values.rememberMe ? "已保存登录信息，下次将自动登录。" : "已成功建立 WebSocket 链接。",
+        duration: 2000
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "网关连接失败。";
+      setError(message);
+      gatewayForm.setValue("autoLogin", false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [gatewayForm, persistSettings, router, toast]);
+
   // Load saved settings on mount
   useEffect(() => {
     const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
-    const savedToken = localStorage.getItem("openclaw.control.token.v1");
+    const profile = getStoredProfile();
+    const username = profile?.nickname ?? "";
+
     if (rawSettings) {
       try {
         const settings = JSON.parse(rawSettings);
         const token = localStorage.getItem("openclaw.control.token.v1") || sessionStorage.getItem("openclaw.control.token.v1") || "";
         gatewayForm.reset({
+          username,
           websocketUrl: settings.gatewayUrl || "",
           gatewayToken: token,
           password: "",
@@ -89,13 +167,22 @@ export default function LoginPage() {
       } catch (e) {
         console.error("Failed to parse settings", e);
       }
+    } else {
+      gatewayForm.reset({
+        username,
+        websocketUrl: "",
+        gatewayToken: "",
+        password: "",
+        sessionSecret: "agent:main:main",
+        rememberMe: true,
+        autoLogin: false,
+      });
     }
-    setIsInitialized(true);
-  }, [gatewayForm]);
 
-  const gatewayPassword = gatewayForm.watch("password");
+    setIsInitialized(true);
+  }, [gatewayForm, onGatewaySubmit]);
+
   const websocketUrl = gatewayForm.watch("websocketUrl");
-  const gatewayToken = gatewayForm.watch("gatewayToken");
 
   // Auto-login when credentials are saved and form is initialized
   useEffect(() => {
@@ -146,7 +233,7 @@ export default function LoginPage() {
       // Auto-login is on but no saved credentials - turn it off
       gatewayForm.setValue("autoLogin", false);
     }
-  }, [isInitialized, gatewayForm]);
+  }, [isInitialized, gatewayForm, onGatewaySubmit]);
 
   // Auto-extract token from URL if present
   useEffect(() => {
@@ -162,7 +249,7 @@ export default function LoginPage() {
           const newUrl = protocol + urlObj.host + urlObj.pathname + urlObj.search;
           gatewayForm.setValue("websocketUrl", newUrl);
         }
-      } catch (e) {
+      } catch {
         // Fallback for non-standard URLs
         const match = websocketUrl.match(/[?&]token=([^&]+)/);
         if (match && match[1]) {
@@ -173,69 +260,6 @@ export default function LoginPage() {
       }
     }
   }, [websocketUrl, gatewayForm]);
-
-  const persistSettings = (data: GatewayFormValues) => {
-    const KEY = "openclaw.control.settings.v1";
-    const TOKEN_KEY = "openclaw.control.token.v1";
-
-    if (!data.rememberMe) {
-      localStorage.removeItem(KEY);
-      localStorage.removeItem(TOKEN_KEY);
-      sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
-      return;
-    }
-
-    const existingRaw = localStorage.getItem(KEY);
-    let existingSettings: any = {};
-    if (existingRaw) {
-      try {
-        existingSettings = JSON.parse(existingRaw);
-      } catch {
-        // 解析失败时使用空配置
-      }
-    }
-
-    const settings = {
-      ...existingSettings,
-      gatewayUrl: data.websocketUrl || existingSettings.gatewayUrl || "",
-      sessionKey: data.sessionSecret || existingSettings.sessionKey || "main",
-      rememberMe: data.rememberMe,
-      autoLogin: data.autoLogin,
-      // Default fallback for critical UI settings if not already present
-      chatShowThinking: existingSettings.chatShowThinking !== undefined ? existingSettings.chatShowThinking : true,
-      theme: existingSettings.theme || "system",
-      locale: existingSettings.locale || "zh-CN",
-    };
-    localStorage.setItem(KEY, JSON.stringify(settings));
-
-    if (data.gatewayToken) {
-      localStorage.setItem(TOKEN_KEY, data.gatewayToken);
-      sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
-    }
-  };
-
-
-
-  const onGatewaySubmit = async (values: GatewayFormValues) => {
-    setIsLoading(true);
-    setError("");
-    try {
-      console.log("Gateway Login:", values);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      persistSettings(values);
-      router.push("/dashboard");
-      toast({
-        title: "网关连接成功",
-        description: values.rememberMe ? "已保存登录信息，下次将自动登录。" : "已成功建立 WebSocket 链接。",
-        duration: 2000
-      });
-    } catch (err: any) {
-      setError(err.message || "网关连接失败。");
-      gatewayForm.setValue("autoLogin", false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen max-h-screen overflow-hidden grid lg:grid-cols-2">
@@ -343,16 +367,29 @@ export default function LoginPage() {
           </div>
           <form onSubmit={gatewayForm.handleSubmit(onGatewaySubmit)} className="space-y-4">
             <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-sm font-medium">用户名</Label>
+              <Input
+                id="username"
+                autoComplete="username"
+                placeholder="请输入用户名"
+                {...gatewayForm.register("username")}
+                onFocus={() => { setIsTyping(true); setFocusedField("username"); }}
+                onBlur={() => { setIsTyping(false); setFocusedField(null); }}
+                className="h-11 border-border/60 rounded-xl"
+              />
+              {gatewayForm.formState.errors.username && <p className="text-xs text-destructive">{gatewayForm.formState.errors.username.message}</p>}
+            </div>
+            <div className="space-y-1.5">
                 <Label htmlFor="websocketUrl" className="text-sm font-medium">WebSocket URL</Label>
                 <div className="relative">
-                  <Input 
-                    id="websocketUrl" 
+                  <Input
+                    id="websocketUrl"
                     placeholder="ws://example.com:18789"
                     autoComplete="off"
-                    {...gatewayForm.register("websocketUrl")} 
+                    {...gatewayForm.register("websocketUrl")}
                     onFocus={() => { setIsTyping(true); setFocusedField("url"); }}
                     onBlur={() => { setIsTyping(false); setFocusedField(null); }}
-                    className="h-11 border-border/60 rounded-xl" 
+                    className="h-11 border-border/60 rounded-xl"
                   />
                 </div>
               {gatewayForm.formState.errors.websocketUrl && <p className="text-xs text-destructive">{gatewayForm.formState.errors.websocketUrl.message}</p>}

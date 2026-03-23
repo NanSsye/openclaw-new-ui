@@ -7,7 +7,7 @@ import {
   History, LayoutDashboard, MessageSquare, Radio,
   Settings, Terminal, Zap, LogOut, ChevronRight,
   Database, Activity, Clock, Bell, Sun, Moon, User, Cpu, Server,
-  PanelLeft, PanelLeftClose, SquareTerminal, RefreshCw
+  PanelLeft, PanelLeftClose, SquareTerminal, RefreshCw, Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -174,6 +174,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar overflow-x-hidden">
           <SidebarGroup title="聊天" collapsed={sidebarCollapsed}>
             <SidebarItem icon={<MessageSquare className="size-4" />} label="聊天" href="/chat" active={pathname === "/chat"} collapsed={sidebarCollapsed} />
+          </SidebarGroup>
+
+          <SidebarGroup title="社区" collapsed={sidebarCollapsed}>
+            <SidebarItem icon={<Users className="size-4" />} label="交流" href="/community" active={pathname === "/community" || pathname.startsWith("/community/")} collapsed={sidebarCollapsed} />
           </SidebarGroup>
 
           <SidebarGroup title="控制" collapsed={sidebarCollapsed}>
