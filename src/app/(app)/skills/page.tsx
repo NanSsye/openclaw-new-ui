@@ -133,7 +133,7 @@ export default function SkillsPage() {
   const fetchFeaturedPlugins = async () => {
     setFeaturedLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_PLUGIN_MARKET_API || "http://xianan.xin:1563";
+      const apiUrl = process.env.NEXT_PUBLIC_PLUGIN_MARKET_API || "https://xianan.xin:1563";
       const res = await fetch(`${apiUrl}/api/plugins/?status=approved`, {
         signal: AbortSignal.timeout(10000),
       });
@@ -162,7 +162,7 @@ export default function SkillsPage() {
     }
     setUploadSubmitting(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_PLUGIN_MARKET_API || "http://xianan.xin:1563";
+      const apiUrl = process.env.NEXT_PUBLIC_PLUGIN_MARKET_API || "https://xianan.xin:1563";
       const formData = new FormData();
       formData.append("name", uploadForm.name);
       formData.append("description", uploadForm.description);
