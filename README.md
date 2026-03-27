@@ -21,6 +21,17 @@
 ---
 
 ## ✨ 核心特性
+---
+
+## 💬 微信群交流
+
+<p align="center">
+  <img src="img/wechat-group-qr.jpg" alt="微信群二维码" width="400">
+  <br>
+  <em>扫码加入 OpenClaw New UI 交流群</em>
+</p>
+
+
 
 - 🎨 **极致美学**：采用模块化玻璃拟态（Glassmorphism）设计，支持灵动的主题切换与细腻的交互动画。
 - ⚙️ **智能控制**：
