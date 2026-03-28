@@ -1,7 +1,7 @@
 const CHAT_ATTACHMENT_API_BASE =
   process.env.NEXT_PUBLIC_CHAT_ATTACHMENT_API || "https://lt.xianan.xin:1563";
 
-export type ChatAttachmentKind = "file" | "image" | "audio";
+export type ChatAttachmentKind = "file" | "image" | "audio" | "video";
 
 export type ChatAttachment = {
   id: string;
@@ -37,6 +37,7 @@ export const MAX_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 export function detectAttachmentKind(mimeType: string) {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
   return "file";
 }
 

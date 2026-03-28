@@ -10,7 +10,7 @@ import {
   MoreHorizontal, Trash2, Power, Settings2, Key,
   BarChart, ListTodo, FileText, Brain, ChevronDownCircle,
   RotateCcw, Box, StopCircle, Eye, Zap, Book, Download,
-  Monitor, X, CheckCircle2, Mic, Square, ImageIcon, Music4, LoaderCircle
+  Monitor, X, CheckCircle2, Mic, Square, ImageIcon, Music4, LoaderCircle, Film
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -125,7 +125,7 @@ function createPendingAttachment(file: File, extra?: { durationMs?: number }) {
     name: file.name || `${kind}-${Date.now()}`,
     mimeType,
     size: file.size,
-    previewUrl: kind === "image" || kind === "audio" ? URL.createObjectURL(file) : undefined,
+    previewUrl: kind === "image" || kind === "audio" || kind === "video" ? URL.createObjectURL(file) : undefined,
     durationMs: extra?.durationMs,
     status: "queued",
   } satisfies PendingAttachment;
@@ -135,6 +135,85 @@ function getMessageAttachments(message: any): ChatAttachment[] {
   if (Array.isArray(message?.attachments)) return message.attachments;
   if (Array.isArray(message?.files)) return message.files;
   return [];
+}
+
+function inferAttachmentKindFromUrl(url: string): ChatAttachment["kind"] {
+  const normalized = url.toLowerCase().split(/[?#]/)[0];
+  if (/\.(png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)$/.test(normalized)) return "image";
+  if (/\.(mp3|wav|ogg|m4a|aac|flac|webm|opus)$/.test(normalized)) return "audio";
+  if (/\.(mp4|mov|m4v|webm|ogv|mkv|avi)$/.test(normalized)) return "video";
+  return "file";
+}
+
+function extractFallbackAttachments(text: string): ChatAttachment[] {
+  if (typeof text !== "string" || !text) return [];
+
+  const urlRegex = /https?:\/\/[^\s)"]+/gi;
+  const seen = new Set<string>();
+  const matches = text.match(urlRegex) || [];
+
+  return matches.flatMap((rawUrl, index) => {
+    const url = rawUrl.replace(/[),.;!?]+$/, "");
+    if (!url || seen.has(url)) return [];
+
+    const kind = inferAttachmentKindFromUrl(url);
+    if (kind === "file" && !/\/api\/chat\/attachments\//i.test(url)) return [];
+
+    seen.add(url);
+    const pathSegment = url.split("/").pop() || `attachment-${index + 1}`;
+    const decodedName = decodeURIComponent(pathSegment);
+
+    return [{
+      id: `fallback-${index}-${decodedName}`,
+      kind,
+      name: decodedName,
+      mimeType: kind === "image" ? "image/*" : kind === "audio" ? "audio/*" : kind === "video" ? "video/*" : "application/octet-stream",
+      size: 0,
+      url,
+    } satisfies ChatAttachment];
+  });
+}
+
+function stripFallbackAttachmentLinks(text: string, attachments: ChatAttachment[]) {
+  if (typeof text !== "string" || !text || attachments.length === 0) return text;
+
+  const attachmentUrls = new Set(attachments.map((attachment) => attachment.url));
+  const lines = text.split(/\r?\n/);
+  const filteredLines = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    return !attachmentUrls.has(trimmed);
+  });
+
+  return filteredLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function extractFallbackAttachmentsFromContent(content: any, message: any): ChatAttachment[] {
+  const seen = new Map<string, ChatAttachment>();
+
+  const addFromText = (text: unknown) => {
+    if (typeof text !== "string" || !text) return;
+    for (const attachment of extractFallbackAttachments(text)) {
+      if (!seen.has(attachment.url)) {
+        seen.set(attachment.url, attachment);
+      }
+    }
+  };
+
+  if (typeof content === "string") {
+    addFromText(content);
+  } else if (Array.isArray(content)) {
+    content.forEach((part) => {
+      if (typeof part === "string") addFromText(part);
+      else if (typeof part?.text === "string") addFromText(part.text);
+      else if (typeof part?.content === "string") addFromText(part.content);
+    });
+  }
+
+  addFromText(message?.text);
+  addFromText(message?.content);
+
+  return Array.from(seen.values());
 }
 
 async function getAudioDurationMs(file: File) {
@@ -189,6 +268,7 @@ function buildAttachmentPrompt(attachments: ChatAttachment[]) {
 
   const imageCount = attachments.filter((attachment) => attachment.kind === "image").length;
   const audioCount = attachments.filter((attachment) => attachment.kind === "audio").length;
+  const videoCount = attachments.filter((attachment) => attachment.kind === "video").length;
   const fileCount = attachments.filter((attachment) => attachment.kind === "file").length;
 
   return [
@@ -197,7 +277,7 @@ function buildAttachmentPrompt(attachments: ChatAttachment[]) {
     "请先根据下面列出的受控附件下载地址查看附件内容，再结合最后的用户正文回答。",
     "如果你能够访问这些地址，请优先读取附件内容后再分析。",
     "如果你当前运行环境无法直接访问下载地址，请明确告诉用户你无法直接下载附件，并基于现有文字说明继续回答，不要假装已经看过附件。",
-    `附件统计: 图片 ${imageCount} 个，音频 ${audioCount} 个，普通文件 ${fileCount} 个。`,
+    `附件统计: 图片 ${imageCount} 个，音频 ${audioCount} 个，视频 ${videoCount} 个，普通文件 ${fileCount} 个。`,
     "附件列表:",
     ...lines,
     "处理要求:",
@@ -1071,15 +1151,18 @@ export default function ChatPage() {
                         <div className="flex flex-wrap gap-2 mb-2 px-2 relative z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {pendingAttachments.map((attachment) => (
                                 <div key={attachment.localId} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-3 py-1.5 group/file max-w-full">
-                                    {attachment.kind === "image" ? <ImageIcon className="size-3 text-primary" /> : attachment.kind === "audio" ? <Music4 className="size-3 text-primary" /> : <FileText className="size-3 text-primary" />}
+                                    {attachment.kind === "image" ? <ImageIcon className="size-3 text-primary" /> : attachment.kind === "audio" ? <Music4 className="size-3 text-primary" /> : attachment.kind === "video" ? <Film className="size-3 text-primary" /> : <FileText className="size-3 text-primary" />}
                                     {attachment.previewUrl && attachment.kind === "image" ? (
                             <img src={attachment.previewUrl} alt={attachment.name} className="size-8 rounded-lg object-cover border border-primary/20" />
+                                    ) : attachment.previewUrl && attachment.kind === "video" ? (
+                            <video src={attachment.previewUrl} className="size-8 rounded-lg object-cover border border-primary/20" muted playsInline />
                                     ) : null}
                                     <div className="min-w-0">
                                       <div className="text-[10px] font-bold truncate max-w-[150px]">{attachment.name}</div>
                                       <div className="text-[9px] text-muted-foreground flex items-center gap-1">
                                         <span>{formatAttachmentSize(attachment.size)}</span>
                                         {attachment.kind === "audio" && <span>· {formatDuration(attachment.durationMs)}</span>}
+                                        {attachment.kind === "video" && <span>· 视频</span>}
                                       </div>
                                     </div>
                                     <button
@@ -1105,7 +1188,7 @@ export default function ChatPage() {
                         "relative bg-background/80 backdrop-blur-md border-border shadow-2xl rounded-[1.5rem] sm:rounded-[2.2rem] overflow-hidden p-2 sm:p-3 flex items-center gap-2 sm:gap-3 pr-3 sm:pr-5 transition-all focus-within:ring-2 ring-primary/20",
                         isDragging && "bg-primary/5 border-primary/40 shadow-primary/20"
                     )}>
-                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,audio/*,.pdf,.txt,.json,.zip,.docx,.xlsx,.pptx" />
+                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,audio/*,video/*,.pdf,.txt,.json,.zip,.docx,.xlsx,.pptx" />
                         <Button
                             variant="ghost"
                             size="icon"
@@ -1186,6 +1269,11 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   const isUser = role === "user";
   const { profile } = useProfile();
   const attachments = getMessageAttachments(message);
+  const fallbackAttachments = useMemo(() => {
+    if (attachments.length > 0) return [];
+    return extractFallbackAttachmentsFromContent(content, message);
+  }, [attachments.length, content, message]);
+  const displayAttachments = attachments.length > 0 ? attachments : fallbackAttachments;
 
   const agentName = useMemo(() => {
     if (!message?.agentId) return null;
@@ -1229,7 +1317,11 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   }, [content, message]);
 
   const renderPart = (part: any, index: number) => {
-    if (typeof part === "string") return <ReactMarkdown key={index} remarkPlugins={[remarkGfm]} components={markdownComponents}>{part}</ReactMarkdown>;
+    if (typeof part === "string") {
+      const text = fallbackAttachments.length > 0 ? stripFallbackAttachmentLinks(part, fallbackAttachments) : part;
+      if (!text || !text.trim()) return null;
+      return <ReactMarkdown key={index} remarkPlugins={[remarkGfm]} components={markdownComponents}>{text}</ReactMarkdown>;
+    }
 
     const type = (part.type ||"").toLowerCase();
     
@@ -1363,6 +1455,9 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     // Explicit text handling
     if (type === "text" || !type) {
         let text = part.text || (typeof part === 'string' ? part : "");
+        if (fallbackAttachments.length > 0) {
+            text = stripFallbackAttachmentLinks(text, fallbackAttachments);
+        }
         if (!text || !text.trim()) {
             if (isStreaming) return <span className="opacity-0">...</span>;
             return null;
@@ -1422,7 +1517,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   const timestamp = rawTs ? new Date(rawTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
   const fromId = message?.from;
 
-  if (parts.length === 0 && attachments.length === 0 && !isStreaming) return null;
+  if (parts.length === 0 && displayAttachments.length === 0 && !isStreaming) return null;
 
   return (
     <div className={cn("flex gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-400 ease-out mb-4 sm:mb-6", isUser ? "flex-row-reverse" : "max-w-4xl")}>
@@ -1454,9 +1549,9 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             <div className={cn(
                 "prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5 overflow-visible"
             )}>
-                {attachments.length > 0 && (
+                {displayAttachments.length > 0 && (
                   <div className="not-prose mb-3 space-y-2">
-                    {attachments.map((attachment) => (
+                    {displayAttachments.map((attachment) => (
                       <div key={attachment.id} className="rounded-2xl border border-border/50 bg-muted/20 p-3">
                         {attachment.kind === "image" ? (
                           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
@@ -1467,9 +1562,17 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
                             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                               <Music4 className="size-4 text-primary" />
                               <span className="truncate">{attachment.name}</span>
-                              <span>· {formatDuration(attachment.durationMs)}</span>
+                              {attachment.durationMs ? <span>· {formatDuration(attachment.durationMs)}</span> : null}
                             </div>
                             <audio controls src={attachment.url} className="w-full" />
+                          </div>
+                        ) : attachment.kind === "video" ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                              <Film className="size-4 text-primary" />
+                              <span className="truncate">{attachment.name}</span>
+                            </div>
+                            <video controls src={attachment.url} className="max-h-80 w-full rounded-xl border border-border/50 bg-black" playsInline />
                           </div>
                         ) : (
                           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3">
@@ -1478,7 +1581,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
                             </div>
                             <div className="min-w-0">
                               <div className="text-sm font-semibold truncate">{attachment.name}</div>
-                              <div className="text-xs text-muted-foreground">{formatAttachmentSize(attachment.size)}</div>
+                              <div className="text-xs text-muted-foreground">{attachment.size > 0 ? formatAttachmentSize(attachment.size) : "点击下载附件"}</div>
                             </div>
                           </a>
                         )}
