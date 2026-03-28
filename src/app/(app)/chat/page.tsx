@@ -10,7 +10,7 @@ import {
   MoreHorizontal, Trash2, Power, Settings2, Key,
   BarChart, ListTodo, FileText, Brain, ChevronDownCircle,
   RotateCcw, Box, StopCircle, Eye, Zap, Book, Download,
-  Monitor, X, CheckCircle2
+  Monitor, X, CheckCircle2, Mic, Square, ImageIcon, Music4, LoaderCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +69,14 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { generateUUID } from "@/lib/openclaw/uuid";
+import {
+  detectAttachmentKind,
+  formatAttachmentSize,
+  MAX_CHAT_ATTACHMENT_SIZE,
+  type ChatAttachment,
+  type PendingAttachment,
+  uploadChatAttachment,
+} from "@/lib/openclaw/chat-attachments";
 
 const markdownComponents = {
     code({ node, inline, className, children, ...props }: any) {
@@ -106,6 +114,100 @@ const markdownComponents = {
     strong: ({ children }: any) => <strong className="font-bold break-words">{children}</strong>,
     em: ({ children }: any) => <em className="italic break-words">{children}</em>,
 };
+
+function createPendingAttachment(file: File, extra?: { durationMs?: number }) {
+  const mimeType = file.type || "application/octet-stream";
+  const kind = detectAttachmentKind(mimeType);
+  return {
+    localId: generateUUID(),
+    kind,
+    file,
+    name: file.name || `${kind}-${Date.now()}`,
+    mimeType,
+    size: file.size,
+    previewUrl: kind === "image" || kind === "audio" ? URL.createObjectURL(file) : undefined,
+    durationMs: extra?.durationMs,
+    status: "queued",
+  } satisfies PendingAttachment;
+}
+
+function getMessageAttachments(message: any): ChatAttachment[] {
+  if (Array.isArray(message?.attachments)) return message.attachments;
+  if (Array.isArray(message?.files)) return message.files;
+  return [];
+}
+
+async function getAudioDurationMs(file: File) {
+  if (!(typeof window !== "undefined" && file.type.startsWith("audio/"))) return undefined;
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    const durationMs = await new Promise<number | undefined>((resolve) => {
+      const cleanup = () => {
+        audio.onloadedmetadata = null;
+        audio.onerror = null;
+      };
+      audio.onloadedmetadata = () => {
+        cleanup();
+        resolve(Number.isFinite(audio.duration) ? Math.round(audio.duration * 1000) : undefined);
+      };
+      audio.onerror = () => {
+        cleanup();
+        resolve(undefined);
+      };
+      audio.src = objectUrl;
+    });
+    return durationMs;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function formatDuration(durationMs?: number) {
+  if (!durationMs || durationMs < 0) return "--:--";
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function buildAttachmentPrompt(attachments: ChatAttachment[]) {
+  if (attachments.length === 0) return "";
+  const lines = attachments.map((attachment, index) => {
+    const details = [
+      `序号: ${index + 1}`,
+      `类型: ${attachment.kind}`,
+      `文件名: ${attachment.name}`,
+      `MIME: ${attachment.mimeType}`,
+      `大小: ${formatAttachmentSize(attachment.size)}`,
+      attachment.durationMs ? `时长: ${formatDuration(attachment.durationMs)}` : null,
+      `下载地址: ${attachment.url}`,
+    ].filter(Boolean);
+    return `- ${details.join(" | ")}`;
+  });
+
+  const imageCount = attachments.filter((attachment) => attachment.kind === "image").length;
+  const audioCount = attachments.filter((attachment) => attachment.kind === "audio").length;
+  const fileCount = attachments.filter((attachment) => attachment.kind === "file").length;
+
+  return [
+    "[附件上下文开始]",
+    "你正在处理一条附带附件的用户消息。",
+    "请先根据下面列出的受控附件下载地址查看附件内容，再结合最后的用户正文回答。",
+    "如果你能够访问这些地址，请优先读取附件内容后再分析。",
+    "如果你当前运行环境无法直接访问下载地址，请明确告诉用户你无法直接下载附件，并基于现有文字说明继续回答，不要假装已经看过附件。",
+    `附件统计: 图片 ${imageCount} 个，音频 ${audioCount} 个，普通文件 ${fileCount} 个。`,
+    "附件列表:",
+    ...lines,
+    "处理要求:",
+    "1. 先看附件，再理解用户正文。",
+    "2. 引用附件内容时，尽量指出你依据的是哪个附件。",
+    "3. 如果附件和正文有冲突，以附件实际内容为准，并明确说明。",
+    "4. 不要忽略任何一个附件。",
+    "[附件上下文结束]",
+  ].join("\n");
+}
 
 export default function ChatPage() {
   const { connected, client, health } = useGateway();
@@ -164,7 +266,11 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
 
   const fetchSessions = useCallback(async () => {
     if (!client || !connected) return;
@@ -259,6 +365,13 @@ export default function ChatPage() {
   }, [showModelMenu, connected, client]);
 
   useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stop?.();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  useEffect(() => {
     if (isUsageDropdownOpen) {
       fetchUsage();
     }
@@ -342,37 +455,72 @@ export default function ChatPage() {
   }, []);
 
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || !client || !connected) return;
-    const text = inputText;
+    if ((!inputText.trim() && pendingAttachments.length === 0) || !client || !connected) return;
+    const text = inputText.trim();
+    const messageId = generateUUID();
+    const optimisticAttachments = pendingAttachments.map((attachment) => ({
+      id: attachment.localId,
+      kind: attachment.kind,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      url: attachment.previewUrl || "",
+      durationMs: attachment.durationMs,
+    }));
     const userMessage = {
-        id: generateUUID(),
+        id: messageId,
         role: "user",
         content: text,
+        attachments: optimisticAttachments,
         createdAt: new Date().toISOString()
     };
 
-    // Optimistic update
     setMessages(prev => [...prev, userMessage]);
     setInputText("");
     setIsTyping(true);
-    setSelectedFiles([]);
+
+    const attachmentsToUpload = [...pendingAttachments];
+    setPendingAttachments([]);
+
     try {
+        const uploadedAttachments = await Promise.all(
+          attachmentsToUpload.map(async (attachment) => {
+            const uploaded = await uploadChatAttachment(attachment.file, activeSession, { durationMs: attachment.durationMs });
+            return uploaded;
+          }),
+        );
+
+        const attachmentPrompt = buildAttachmentPrompt(uploadedAttachments);
+        const finalMessage = attachmentPrompt ? `${attachmentPrompt}\n\n${text}`.trim() : text;
+
         await client.request("chat.send", {
             sessionKey: activeSession,
-            message: text,
-            idempotencyKey: userMessage.id
+            message: finalMessage,
+            idempotencyKey: messageId,
+            attachments: uploadedAttachments,
         });
     } catch (e: any) {
         setIsTyping(false);
         toast({ title: "发送失败", description: e.message, variant: "destructive" });
+    } finally {
+        attachmentsToUpload.forEach((attachment) => {
+          if (attachment.previewUrl) {
+            URL.revokeObjectURL(attachment.previewUrl);
+          }
+        });
     }
-  }, [inputText, client, connected, activeSession, toast]);
+  }, [inputText, pendingAttachments, client, connected, activeSession, toast]);
 
   const handleSwitchSession = (key: string) => {
+    pendingAttachments.forEach((attachment) => {
+      if (attachment.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+      }
+    });
     setActiveSession(key);
     setStreamingMessage("");
     setInputText("");
-    setSelectedFiles([]);
+    setPendingAttachments([]);
     setMessages([]);
     fetchHistory(key);
     setShowSessionMenu(false);
@@ -383,11 +531,20 @@ export default function ChatPage() {
     handleSwitchSession(newKey);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
+      const nextAttachments = await Promise.all(files.map(async (file) => createPendingAttachment(file, { durationMs: await getAudioDurationMs(file) })));
+      const oversize = nextAttachments.find((attachment) => attachment.size > MAX_CHAT_ATTACHMENT_SIZE);
+      if (oversize) {
+        if (oversize.previewUrl) {
+          URL.revokeObjectURL(oversize.previewUrl);
+        }
+        toast({ title: "附件过大", description: `${oversize.name} 超过 20MB 限制`, variant: "destructive" });
+      }
+      setPendingAttachments((prev) => [...prev, ...nextAttachments.filter((attachment) => attachment.size <= MAX_CHAT_ATTACHMENT_SIZE)]);
     }
+    e.target.value = "";
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -400,18 +557,72 @@ export default function ChatPage() {
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files || []);
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
+      const nextAttachments = await Promise.all(files.map(async (file) => createPendingAttachment(file, { durationMs: await getAudioDurationMs(file) })));
+      const accepted = nextAttachments.filter((attachment) => attachment.size <= MAX_CHAT_ATTACHMENT_SIZE);
+      nextAttachments.filter((attachment) => attachment.size > MAX_CHAT_ATTACHMENT_SIZE).forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+      if (accepted.length !== nextAttachments.length) {
+        toast({ title: "部分附件未加入", description: "超过 20MB 的附件已被忽略", variant: "destructive" });
+      }
+      setPendingAttachments((prev) => [...prev, ...accepted]);
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  const removeFile = (localId: string) => {
+    setPendingAttachments(prev => {
+      const target = prev.find((attachment) => attachment.localId === localId);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((attachment) => attachment.localId !== localId);
+    });
   };
+
+  const handleStartRecording = useCallback(async () => {
+    if (isRecording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingChunksRef.current = [];
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = async () => {
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "m4a" : "webm";
+        const file = new File([blob], `voice-${Date.now()}.${extension}`, { type: blob.type || "audio/webm" });
+        const durationMs = await getAudioDurationMs(file);
+        setPendingAttachments((prev) => [...prev, createPendingAttachment(file, { durationMs })]);
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordingChunksRef.current = [];
+      };
+      recorder.start();
+      setIsRecording(true);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "请检查麦克风权限";
+        toast({ title: "无法开始录音", description: message, variant: "destructive" });
+      }
+  }, [isRecording, toast]);
+
+  const handleStopRecording = useCallback(() => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
+    mediaRecorderRef.current.stop();
+    setIsRecording(false);
+  }, []);
 
   const activeSessionData = useMemo(() => {
     const s = sessions.find(sess => sess.key === activeSession);
@@ -432,11 +643,12 @@ export default function ChatPage() {
     } else {
       const cmdText = `/${cmd.name}`;
       // Execute simple commands immediately
-      const userMessage = { 
-        id: generateUUID(), 
-        role: "user", 
+      const userMessage = {
+        id: generateUUID(),
+        role: "user",
         content: cmdText,
-        createdAt: new Date().toISOString() 
+        attachments: [],
+        createdAt: new Date().toISOString()
       };
       setMessages(prev => [...prev, userMessage]);
       setIsTyping(true);
@@ -640,6 +852,7 @@ export default function ChatPage() {
                                                         id: generateUUID(),
                                                         role: "user",
                                                         content: cmdText,
+                                                        attachments: [],
                                                         createdAt: new Date().toISOString()
                                                       };
                                                       setMessages(prev => [...prev, userMessage]);
@@ -854,19 +1067,28 @@ export default function ChatPage() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                 >
-                    {selectedFiles.length > 0 && (
+                    {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-2 px-2 relative z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {selectedFiles.map((file, idx) => (
-                                <div key={idx} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-3 py-1.5 group/file">
-                                    <FileText className="size-3 text-primary" />
-                                    <span className="text-[10px] font-bold truncate max-w-[120px]">{file.name}</span>
-                                    <button 
+                            {pendingAttachments.map((attachment) => (
+                                <div key={attachment.localId} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-3 py-1.5 group/file max-w-full">
+                                    {attachment.kind === "image" ? <ImageIcon className="size-3 text-primary" /> : attachment.kind === "audio" ? <Music4 className="size-3 text-primary" /> : <FileText className="size-3 text-primary" />}
+                                    {attachment.previewUrl && attachment.kind === "image" ? (
+                            <img src={attachment.previewUrl} alt={attachment.name} className="size-8 rounded-lg object-cover border border-primary/20" />
+                                    ) : null}
+                                    <div className="min-w-0">
+                                      <div className="text-[10px] font-bold truncate max-w-[150px]">{attachment.name}</div>
+                                      <div className="text-[9px] text-muted-foreground flex items-center gap-1">
+                                        <span>{formatAttachmentSize(attachment.size)}</span>
+                                        {attachment.kind === "audio" && <span>· {formatDuration(attachment.durationMs)}</span>}
+                                      </div>
+                                    </div>
+                                    <button
                                         type="button"
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            removeFile(idx);
-                                        }} 
+                                            removeFile(attachment.localId);
+                                        }}
                                         className="hover:text-destructive transition-colors ml-1 cursor-pointer p-0.5"
                                     >
                                         <XCircle className="size-3.5 fill-background" />
@@ -883,14 +1105,26 @@ export default function ChatPage() {
                         "relative bg-background/80 backdrop-blur-md border-border shadow-2xl rounded-[1.5rem] sm:rounded-[2.2rem] overflow-hidden p-2 sm:p-3 flex items-center gap-2 sm:gap-3 pr-3 sm:pr-5 transition-all focus-within:ring-2 ring-primary/20",
                         isDragging && "bg-primary/5 border-primary/40 shadow-primary/20"
                     )}>
-                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
+                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,audio/*,.pdf,.txt,.json,.zip,.docx,.xlsx,.pptx" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => fileInputRef.current?.click()}
                             className="rounded-xl sm:rounded-2xl size-8 sm:size-10 shrink-0 hover:bg-muted sm:ml-1"
                         >
                             <Plus className="size-5 text-muted-foreground" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={isRecording ? handleStopRecording : handleStartRecording}
+                            className={cn(
+                              "rounded-xl sm:rounded-2xl size-8 sm:size-10 shrink-0 hover:bg-muted",
+                              isRecording && "text-red-500 bg-red-500/10 hover:bg-red-500/15"
+                            )}
+                        >
+                            {isRecording ? <Square className="size-4 sm:size-5" /> : <Mic className="size-4 sm:size-5 text-muted-foreground" />}
                         </Button>
                         <textarea
                             value={inputText}
@@ -900,12 +1134,12 @@ export default function ChatPage() {
                             className="flex-1 bg-transparent border-none focus:ring-0 resize-none min-h-[40px] sm:min-h-[48px] max-h-32 sm:max-h-48 py-2 sm:py-3 px-1 sm:px-2 text-sm sm:text-base font-medium custom-scrollbar"
                             rows={1}
                         />
-                        <Button 
+                        <Button
                             onClick={handleSend}
-                            disabled={!inputText.trim() || !connected}
+                            disabled={(!inputText.trim() && pendingAttachments.length === 0) || !connected}
                             className="rounded-xl sm:rounded-2xl size-9 sm:size-11 grow-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/20 active:scale-90 transition-all shrink-0"
                         >
-                            <Send className="size-4 sm:size-5" />
+                            {isTyping ? <LoaderCircle className="size-4 sm:size-5 animate-spin" /> : <Send className="size-4 sm:size-5" />}
                         </Button>
                     </Card>
                 </motion.div>
@@ -951,6 +1185,7 @@ export default function ChatPage() {
 const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, message, agents, showDetails }: any) => {
   const isUser = role === "user";
   const { profile } = useProfile();
+  const attachments = getMessageAttachments(message);
 
   const agentName = useMemo(() => {
     if (!message?.agentId) return null;
@@ -1187,7 +1422,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   const timestamp = rawTs ? new Date(rawTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
   const fromId = message?.from;
 
-  if (parts.length === 0 && !isStreaming) return null;
+  if (parts.length === 0 && attachments.length === 0 && !isStreaming) return null;
 
   return (
     <div className={cn("flex gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-400 ease-out mb-4 sm:mb-6", isUser ? "flex-row-reverse" : "max-w-4xl")}>
@@ -1219,6 +1454,38 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
             <div className={cn(
                 "prose prose-sm dark:prose-invert max-w-none w-full break-words leading-tight sm:leading-relaxed text-[11px] sm:text-[14px] prose-p:my-1 sm:prose-p:my-2 prose-headings:text-base prose-headings:mt-3 prose-headings:mb-1 sm:prose-headings:mt-4 sm:prose-headings:mb-2 prose-h1:text-lg sm:prose-h1:text-xl prose-pre:p-2 sm:prose-pre:p-3 prose-li:my-0.5 overflow-visible"
             )}>
+                {attachments.length > 0 && (
+                  <div className="not-prose mb-3 space-y-2">
+                    {attachments.map((attachment) => (
+                      <div key={attachment.id} className="rounded-2xl border border-border/50 bg-muted/20 p-3">
+                        {attachment.kind === "image" ? (
+                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img src={attachment.url} alt={attachment.name} className="max-h-64 w-auto rounded-xl border border-border/50 object-cover" />
+                          </a>
+                        ) : attachment.kind === "audio" ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                              <Music4 className="size-4 text-primary" />
+                              <span className="truncate">{attachment.name}</span>
+                              <span>· {formatDuration(attachment.durationMs)}</span>
+                            </div>
+                            <audio controls src={attachment.url} className="w-full" />
+                          </div>
+                        ) : (
+                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3">
+                            <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                              <FileText className="size-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold truncate">{attachment.name}</div>
+                              <div className="text-xs text-muted-foreground">{formatAttachmentSize(attachment.size)}</div>
+                            </div>
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {parts.map((part, i) => renderPart(part, i))}
                 {isStreaming && (
                   <motion.span
