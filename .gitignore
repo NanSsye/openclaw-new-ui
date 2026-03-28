@@ -42,3 +42,13 @@ next-env.d.ts
 
 # community api data
 community-api/data/*.json
+community-api/node_modules/
+
+# local IDE and Claude files
+.idea/
+android/.idea/
+.claude/settings.local.json
+
+# local logs and temp files
+hs_err_pid*.log
+replay_pid*.log
