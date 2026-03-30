@@ -300,6 +300,7 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<any | null>(null);
+  const [streamingMessages, setStreamingMessages] = useState<any[]>([]);
   
   const [activeSession, setActiveSession] = useState("main");
   const [showDetails, setShowDetails] = useState(true);
@@ -351,6 +352,11 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
+  
+  // Streaming poll ref
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The runId of the current streaming session (set when chat.send is called)
+  const currentRunIdRef = useRef<string>("");
 
   const fetchSessions = useCallback(async () => {
     if (!client || !connected) return;
@@ -426,8 +432,12 @@ export default function ChatPage() {
   }, [models, selectedModel]);
 
 
+  // Track if we've initialized for the current connected session to prevent infinite loops
+  const initRef = useRef<boolean>(false);
+
   useEffect(() => {
-    if (connected && client) {
+    if (connected && client && !initRef.current) {
+      initRef.current = true;
       const init = async () => {
         await fetchConfig();
         await fetchSessions();
@@ -436,7 +446,7 @@ export default function ChatPage() {
       };
       init();
     }
-  }, [connected, client, activeSession]); // Added activeSession to dependencies for safety
+  }, [connected, client, activeSession, fetchConfig, fetchSessions, fetchModels, fetchHistory]);
 
   useEffect(() => {
     if (showModelMenu) {
@@ -457,21 +467,66 @@ export default function ChatPage() {
     }
   }, [isUsageDropdownOpen, connected, client]);
 
+  // Use a ref to always get the latest toast function without causing effect re-runs
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
+  // Filter messages to avoid showing the "in-progress" assistant message twice
+  // When streamingMessage is active, exclude the last assistant message from display
+  // Simple display: show all messages, the streamingMessage overlays on top
+  const displayedMessages = messages;
+
   useEffect(() => {
     if (!client) return;
     const handleEvent = (evt: any) => {
+      console.log("[streaming] handleEvent called, event:", evt.event, "payload.state:", evt.payload?.state);
       if (evt.event === "chat") {
         const { state, message, sessionKey, errorMessage } = evt.payload;
+        console.log("[streaming] chat event, state:", state, "message keys:", message ? Object.keys(message) : null);
 
         // Flexible session key check
         const normalizedActive = activeSession.startsWith("agent:") ? activeSession.split(":").pop() : activeSession;
         const normalizedEvent = (sessionKey || "").startsWith("agent:") ? sessionKey.split(":").pop() : sessionKey;
 
         if (sessionKey !== activeSession && normalizedEvent !== normalizedActive) {
+            console.log("[streaming] session key mismatch, skipping");
             return;
         }
 
         if (state === "delta") {
+            console.log("[streaming] delta state detected!");
+            // 将 message.content 数组拆分为多个独立的 message
+            const content = message?.content;
+            console.log("[streaming] delta event, message:", JSON.stringify(message));
+            if (Array.isArray(content)) {
+              console.log("[streaming] content is array, length:", content.length);
+              // 为每个 content part 创建独立的 message 对象
+              const newStreamingMessages = content.map((part: any, idx: number) => ({
+                id: `streaming-${Date.now()}-${idx}`,
+                role: part.toolCallId || part.tool_call_id ? 'tool' : 'assistant',
+                // MessageItem 期望 content 是数组，所以把 part 包装成数组
+                content: [part],
+                // 同时把 part 的关键属性提取到顶层，让 MessageItem 能正确识别类型
+                toolCallId: part.toolCallId,
+                tool_call_id: part.tool_call_id,
+                name: part.name,
+                arguments: part.arguments,
+                args: part.args,
+                text: part.text,
+                partIndex: idx,
+              }));
+              setStreamingMessages(newStreamingMessages);
+            } else {
+              // 非数组情况：将 content 包装成数组或使用默认格式
+              console.log("[streaming] content is not array, using fallback:", typeof content, content);
+              // 如果 content 存在，包装成数组；否则使用整个 message 作为 content
+              const fallbackContent = content !== undefined ? [content] : (message ? [message] : []);
+              setStreamingMessages([{
+                id: `streaming-${Date.now()}`,
+                role: 'assistant',
+                content: fallbackContent,
+              }]);
+            }
             setStreamingMessage(message);
             setIsTyping(true);
             if (evt.payload.usage) {
@@ -480,13 +535,17 @@ export default function ChatPage() {
                 setSessions(prev => prev.map(s => s.key === sessionKey ? { ...s, usage } : s));
             }
         } else if (state === "final" || state === "after-final" || state === "aborted") {
+            // Stop streaming poll
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+            // Fetch history immediately (no debounce) to avoid gap
+            fetchHistory(activeSession);
+            fetchSessions();
             setStreamingMessage(null);
+            setStreamingMessages([]);
             setIsTyping(false);
-            // Debounce history/sessions fetch
-            setTimeout(() => {
-              fetchHistory(activeSession);
-              fetchSessions();
-            }, 500);
             if (evt.payload.usage) {
                 const usage = evt.payload.usage;
                 setSessionUsage(usage);
@@ -494,14 +553,20 @@ export default function ChatPage() {
             }
         } else if (state === "error") {
             console.error("Chat error from gateway:", errorMessage);
+            // Stop streaming poll
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
             setStreamingMessage(null);
+            setStreamingMessages([]);
             setIsTyping(false);
-            toast({ title: "对话错误", description: errorMessage || "网关处理消息时遇到错误", variant: "destructive" });
+            toastRef.current({ title: "对话错误", description: errorMessage || "网关处理消息时遇到错误", variant: "destructive" });
         }
       }
     };
     (client as any).opts.onEvent = handleEvent;
-  }, [client, activeSession, fetchHistory, fetchSessions, toast]);
+  }, [client, activeSession, fetchHistory, fetchSessions]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -510,7 +575,7 @@ export default function ChatPage() {
             behavior: isTyping || streamingMessage ? "auto" : "smooth"
         });
     }
-  }, [messages, streamingMessage, isTyping]);
+  }, [messages, streamingMessage, streamingMessages, isTyping]);
 
   const handleOpenSidebar = useCallback((content: string) => {
     setSidebarContent(content);
@@ -555,12 +620,83 @@ export default function ChatPage() {
         createdAt: new Date().toISOString()
     };
 
+    // Optimistically add user message so it appears immediately
     setMessages(prev => [...prev, userMessage]);
     setInputText("");
     setIsTyping(true);
+    setStreamingMessage(null);
+    setStreamingMessages([]);
 
     const attachmentsToUpload = [...pendingAttachments];
     setPendingAttachments([]);
+
+    // Store refs for polling callback
+    const toastRef = { current: toast };
+
+    // Start polling for streaming progress
+    const startPolling = () => {
+      // Clear any existing poll
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      
+      pollIntervalRef.current = setInterval(async () => {
+        if (!client || !connected) {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          return;
+        }
+        try {
+          const res: any = await client.request("chat.history", { sessionKey: activeSession, limit: 20 });
+          const msgs = res.messages || [];
+          
+          console.log("[Chat] History msgs:", msgs.map((m: any) => ({
+            role: m.role,
+            runId: m.runId,
+            contentType: Array.isArray(m.content) ? m.content.map((c: any) => c.type) : typeof m.content
+          })));
+          
+          // Find the user message index to know where streaming starts
+          const userMsgIdx = [...msgs].reverse().findIndex((m: any) => m.role === "user");
+          let streamingStartIdx = 0;
+          if (userMsgIdx >= 0) {
+            streamingStartIdx = msgs.length - 1 - userMsgIdx + 1; // +1 to skip the user message itself
+          }
+          
+          // Get all messages that come after the user's message (these are streaming)
+          const streamingMsgs = msgs.slice(streamingStartIdx).map((m: any, idx: number) => ({
+            id: `streaming-${Date.now()}-${idx}`,
+            role: m.role,
+            content: Array.isArray(m.content) ? m.content : [m.content],
+            toolCallId: m.toolCallId,
+            tool_call_id: m.tool_call_id,
+            name: m.name,
+            arguments: m.arguments,
+            args: m.args,
+            text: m.text,
+          }));
+          
+          if (streamingMsgs.length > 0) {
+            console.log("[Chat] Streaming update, messages count:", streamingMsgs.length, "roles:", streamingMsgs.map((m: any) => m.role));
+            setStreamingMessages(streamingMsgs);
+            setStreamingMessage(streamingMsgs[streamingMsgs.length - 1]); // Keep last for compatibility
+            setIsTyping(true);
+          }
+        } catch (e) {
+          console.warn("[Chat] Polling error", e);
+        }
+      }, 800);
+    };
+
+    const stopPolling = () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      currentRunIdRef.current = "";
+    };
 
     try {
         const uploadedAttachments = await Promise.all(
@@ -573,15 +709,27 @@ export default function ChatPage() {
         const attachmentPrompt = buildAttachmentPrompt(uploadedAttachments);
         const finalMessage = attachmentPrompt ? `${attachmentPrompt}\n\n${text}`.trim() : text;
 
-        await client.request("chat.send", {
+        // Start polling immediately when sending
+        startPolling();
+
+        const sendRes: any = await client.request("chat.send", {
             sessionKey: activeSession,
             message: finalMessage,
             idempotencyKey: messageId,
             attachments: uploadedAttachments,
         });
+        // Capture the runId for filtering
+        if (sendRes?.runId) {
+          currentRunIdRef.current = sendRes.runId;
+          console.log("[Chat] Captured runId:", sendRes.runId);
+        }
+        // Note: We don't stop polling here because the response might still be generating
+        // The onEvent handler will stop it when we get "final" or "after-final"
     } catch (e: any) {
+        stopPolling();
         setIsTyping(false);
-        toast({ title: "发送失败", description: e.message, variant: "destructive" });
+        setStreamingMessage(null);
+        toastRef.current({ title: "发送失败", description: e.message, variant: "destructive" });
     } finally {
         attachmentsToUpload.forEach((attachment) => {
           if (attachment.previewUrl) {
@@ -602,6 +750,7 @@ export default function ChatPage() {
     setInputText("");
     setPendingAttachments([]);
     setMessages([]);
+    currentRunIdRef.current = "";
     fetchHistory(key);
     setShowSessionMenu(false);
   };
@@ -821,7 +970,7 @@ export default function ChatPage() {
       >
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
             <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12 pb-32 sm:pb-40">
-                {messages.length === 0 && !isTyping && !streamingMessage && (
+                {displayedMessages.length === 0 && !isTyping && !streamingMessage && (
                     <div className="h-full flex flex-col items-center justify-center text-muted-foreground pt-40 opacity-20 select-none">
                         <Bot className="size-32 mb-6 stroke-[0.5]" />
                         <div className="text-center font-black uppercase tracking-[0.3em]">
@@ -830,7 +979,7 @@ export default function ChatPage() {
                         </div>
                     </div>
                 )}
-                {messages.map((m, i) => (
+                {displayedMessages.map((m, i) => (
                   <MessageItem 
                     key={`${m.id || i}`} 
                     {...m}
@@ -859,17 +1008,18 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
-                {streamingMessage && (
+                {streamingMessages.map((msg, idx) => (
                   <MessageItem 
-                    role="assistant" 
-                    content={streamingMessage.content}
-                    message={streamingMessage} 
+                    key={msg.id || idx}
+                    role={msg.role} 
+                    content={msg.content}
+                    message={msg} 
                     isStreaming={true}
                     onOpenSidebar={handleOpenSidebar}
                     agents={agents}
                     showDetails={showDetails}
                   />
-                )}
+                ))}
                 <div ref={bottomRef} className="h-4" />
             </div>
         </div>

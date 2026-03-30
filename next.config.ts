@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
-  allowedDevOrigins: ['*'],
+
 };
 
 export default nextConfig;
