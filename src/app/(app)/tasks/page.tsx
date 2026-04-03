@@ -87,6 +87,14 @@ interface Run {
   sessionKey?: string;
 }
 
+type CronListResponse = {
+  jobs?: Job[];
+};
+
+type CronRunsResponse = {
+  entries?: Run[];
+};
+
 export default function TasksPage() {
   const { client, connected } = useGateway();
   const { toast } = useToast();
@@ -110,11 +118,11 @@ export default function TasksPage() {
     setLoading(true);
     try {
       const [statusRes, listRes] = await Promise.all([
-        client.request("cron.status", {}),
-        client.request("cron.list", { limit: 100, offset: 0 })
+        client.request<CronStatus>("cron.status", {}),
+        client.request<CronListResponse>("cron.list", { limit: 100, offset: 0 })
       ]);
       setStatus(statusRes);
-      setJobs((listRes as { jobs?: Job[] }).jobs || []);
+      setJobs(listRes.jobs || []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "未知错误";
       toast({ title: "加载 Cron 数据失败", description: message, variant: "destructive" });
@@ -127,8 +135,8 @@ export default function TasksPage() {
     if (!client || !connected) return;
     setRunsLoading(true);
     try {
-      const runsRes = await client.request("cron.runs", { scope: "job", id: jobId, limit: 50 });
-      setRuns((runsRes as { entries?: Run[] }).entries || []);
+      const runsRes = await client.request<CronRunsResponse>("cron.runs", { scope: "job", id: jobId, limit: 50 });
+      setRuns(runsRes.entries || []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "未知错误";
       toast({ title: "加载执行记录失败", description: message, variant: "destructive" });

@@ -122,8 +122,8 @@ export default function ChannelsPage() {
     setLoading(true);
     try {
         const res = await client.request<ConfigGetResponse>("config.get", {});
-        setFullConfig(res.config);
-        setConfigHash(res.hash);
+        setFullConfig(res.config ?? null);
+        setConfigHash(res.hash ?? null);
         setConfigModalOpen(true);
     } catch (e: unknown) {
         toast({ title: "加载配置失败", description: e instanceof Error ? e.message : "读取配置失败", variant: "destructive" });

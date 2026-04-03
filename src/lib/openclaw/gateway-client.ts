@@ -15,8 +15,8 @@ export type GatewayResponseFrame = {
   error?: { code: string; message: string; details?: unknown };
 };
 
-type GatewayPendingRequest<T = unknown> = {
-  resolve: (value: T | PromiseLike<T>) => void;
+type GatewayPendingRequest = {
+  resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
 };
@@ -217,6 +217,10 @@ export class GatewayClient {
 
   constructor(public opts: GatewayBrowserClientOptions) {}
 
+  setOnEvent(handler?: GatewayBrowserClientOptions["onEvent"]) {
+    this.opts.onEvent = handler;
+  }
+
   start() {
     this.closed = false;
     this.helloDelivered = false;
@@ -395,7 +399,11 @@ export class GatewayClient {
           }
       }, timeoutMs);
 
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, {
+        resolve: (value) => resolve(value as T),
+        reject,
+        timer,
+      });
       this.ws?.send(JSON.stringify(frame));
     });
   }

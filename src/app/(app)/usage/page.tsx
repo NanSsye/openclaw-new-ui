@@ -91,16 +91,16 @@ export default function UsagePage() {
       };
 
       const [sessionsRes, costRes] = await Promise.all([
-        client.request("sessions.usage", { ...reqArgs, limit: 100, includeContextWeight: true }).catch(err => {
+        client.request<SessionsUsageResponse>("sessions.usage", { ...reqArgs, limit: 100, includeContextWeight: true }).catch((err: unknown) => {
           // Fallback if legacy Gateway doesn't support mode/utcOffset
-          if (err.message && String(err.message).includes("mode")) {
-             return client.request("sessions.usage", { startDate, endDate, limit: 100 });
+          if (err instanceof Error && String(err.message).includes("mode")) {
+             return client.request<SessionsUsageResponse>("sessions.usage", { startDate, endDate, limit: 100 });
           }
           throw err;
         }),
-        client.request("usage.cost", reqArgs).catch(err => {
-          if (err.message && String(err.message).includes("mode")) {
-             return client.request("usage.cost", { startDate, endDate });
+        client.request<CostResponse>("usage.cost", reqArgs).catch((err: unknown) => {
+          if (err instanceof Error && String(err.message).includes("mode")) {
+             return client.request<CostResponse>("usage.cost", { startDate, endDate });
           }
           throw err;
         })

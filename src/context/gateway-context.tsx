@@ -43,6 +43,10 @@ interface GatewayContextType {
 
 const GatewayContext = createContext<GatewayContextType | undefined>(undefined);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
@@ -67,19 +71,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           onHello: (hello) => {
             setConnected(true);
             setError(null);
-            const snapshotData = hello.payload || hello.snapshot || {};
+            const snapshotData = (isRecord(hello.payload) ? hello.payload : isRecord(hello.snapshot) ? hello.snapshot : {});
             setSnapshot({ ...snapshotData, server: hello.server });
-            const sn = hello.payload || hello.snapshot;
+            const sn = isRecord(hello.payload) ? hello.payload : isRecord(hello.snapshot) ? hello.snapshot : null;
             if (sn) {
-                if (sn.presence) setPresence(sn.presence);
-                if (sn.health) setHealth(sn.health);
+                if (Array.isArray(sn.presence)) setPresence(sn.presence as PresenceEntry[]);
+                if (isRecord(sn.health)) setHealth(sn.health as HealthInfo);
             }
           },
           onEvent: (evt) => {
+            const payload = isRecord(evt.payload) ? evt.payload : null;
             if (evt.event === "presence") {
-                setPresence(evt.payload?.presence || []);
+                setPresence(Array.isArray(payload?.presence) ? payload.presence as PresenceEntry[] : []);
             } else if (evt.event === "health") {
-                setHealth(evt.payload?.health || null);
+                setHealth(isRecord(payload?.health) ? payload.health as HealthInfo : null);
             }
           },
           onClose: (info) => {

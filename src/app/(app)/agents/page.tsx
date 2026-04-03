@@ -77,8 +77,8 @@ export default function AgentsPage() {
     setLoading(true);
     try {
       const [configRes, toolsRes] = await Promise.all([
-        client.request("config.get"),
-        client.request("tools.catalog")
+        client.request<ConfigResponse>("config.get"),
+        client.request<ToolsCatalogResponse>("tools.catalog")
       ]);
       setConfigData(configRes);
       setToolsCatalog(toolsRes);

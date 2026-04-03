@@ -36,6 +36,12 @@ type ApplyWindow = Window & {
   _applySessionKey?: string;
 };
 
+function toInputValue(value: unknown) {
+  if (typeof value === "string" || typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return "";
+}
+
 const SECTIONS = [
   { id: "agents", label: "代理中心 (Agents)", icon: Cpu, desc: "管理多智能体身份、模型及心跳" },
   { id: "auth", label: "身份鉴权 (Auth)", icon: Shield, desc: "管理 API Key 与访问配置" },
@@ -177,7 +183,7 @@ export default function ConfigPage() {
         {description && <p className="text-[11px] text-muted-foreground leading-relaxed">{description}</p>}
         {type !== "boolean" && (
           <Input 
-            value={value ?? ""} 
+            value={toInputValue(value)} 
             type={type === "number" ? "number" : "text"}
             onChange={(e) => handleFormUpdate(path, type === "number" ? Number(e.target.value) : e.target.value)}
             className="h-9 bg-background/50 border-border/50 focus:border-primary/30"
