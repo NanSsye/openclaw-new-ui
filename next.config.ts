@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 import { version } from './package.json';
 
+const outputMode = process.env.NEXT_OUTPUT_MODE === "export" ? "export" : "standalone";
+
 const nextConfig: NextConfig = {
-  output: 'export',
+  output: outputMode,
   devIndicators: false,
   images: {
     remotePatterns: [

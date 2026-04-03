@@ -78,6 +78,11 @@ import {
   uploadChatAttachment,
 } from "@/lib/openclaw/chat-attachments";
 
+const MemoizedMarkdown = memo(({ text }: { text: string }) => (
+  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{text}</ReactMarkdown>
+));
+MemoizedMarkdown.displayName = "MemoizedMarkdown";
+
 const markdownComponents = {
     code({ node, inline, className, children, ...props }: any) {
         const match = /language-(\w+)/.exec(className || "");
@@ -301,6 +306,7 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<any | null>(null);
   const [streamingMessages, setStreamingMessages] = useState<any[]>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   
   const [activeSession, setActiveSession] = useState("main");
   const [showDetails, setShowDetails] = useState(true);
@@ -422,6 +428,9 @@ export default function ChatPage() {
       const res: any = await client.request("chat.history", { sessionKey: key, limit: 100 });
       setMessages(res.messages || []);
       setIsTyping(false);
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'auto' });
+      }, 100);
     } catch (e) {
       toast({ title: "加载历史失败", description: "无法同步漫游记录", variant: "destructive" });
     }
@@ -570,12 +579,34 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (scrollRef.current) {
-        scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: isTyping || streamingMessage ? "auto" : "smooth"
-        });
+        const container = scrollRef.current;
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+
+        if (isNearBottom) {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: isTyping || streamingMessage ? "auto" : "smooth"
+            });
+        }
     }
   }, [messages, streamingMessage, streamingMessages, isTyping]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      setShowScrollButton(!isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  };
 
   const handleOpenSidebar = useCallback((content: string) => {
     setSidebarContent(content);
@@ -963,9 +994,9 @@ export default function ChatPage() {
             document.getElementById('header-context-monitor-portal')!
         )}
 
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         className="flex-1 flex flex-col h-full overflow-hidden relative"
       >
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-8 custom-scrollbar scroll-smooth">
@@ -1030,7 +1061,18 @@ export default function ChatPage() {
             transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
             className="absolute bottom-0 left-0 right-0 p-3 sm:p-8 pt-8 sm:pt-12 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none"
         >
-            <div className="max-w-4xl mx-auto pointer-events-auto">
+            <div className="max-w-4xl mx-auto pointer-events-auto relative">
+                {showScrollButton && (
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2">
+                        <Button
+                            variant="outline" size="sm"
+                            onClick={scrollToBottom}
+                            className="size-7 rounded-full border-border/50 px-0 shadow-sm backdrop-blur-sm hover:scale-105 transition-all shrink-0 bg-background/80 text-muted-foreground"
+                        >
+                            <ChevronDown className="size-3.5" />
+                        </Button>
+                    </div>
+                )}
                 <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-2 sm:mb-4">
                     <motion.div layout className="flex w-max items-center gap-1 px-1 pb-1">
                         {/* Model Selector - Far Left with text */}
@@ -1470,7 +1512,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     if (typeof part === "string") {
       const text = fallbackAttachments.length > 0 ? stripFallbackAttachmentLinks(part, fallbackAttachments) : part;
       if (!text || !text.trim()) return null;
-      return <ReactMarkdown key={index} remarkPlugins={[remarkGfm]} components={markdownComponents}>{text}</ReactMarkdown>;
+      return <MemoizedMarkdown key={index} text={text} />;
     }
 
     const type = (part.type ||"").toLowerCase();
@@ -1654,11 +1696,9 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
 
     textContent = textContent.replace(/<\/?final>/g, "").trim();
     if (!textContent) return null;
-    
+
     return (
-        <ReactMarkdown key={index} remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {textContent}
-        </ReactMarkdown>
+        <MemoizedMarkdown key={index} text={textContent} />
     );
   };
 
@@ -1741,12 +1781,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
                 )}
                 {parts.map((part, i) => renderPart(part, i))}
                 {isStreaming && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8 }}
-                    className="inline-block w-1.5 h-4 sm:h-5 bg-primary/80 ml-1 align-middle shadow-[0_0_8px_rgba(var(--primary),0.5)] rounded-full"
-                  />
+                  <span className="inline-block w-1.5 h-4 sm:h-5 bg-primary/80 ml-1 align-middle shadow-[0_0_8px_rgba(var(--primary),0.5)] rounded-full animate-pulse" />
                 )}
             </div>
         </div>

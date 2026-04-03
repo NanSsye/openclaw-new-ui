@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import {
   History, LayoutDashboard, MessageSquare, Radio,
@@ -99,17 +98,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
       {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {mobileSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden transition-opacity duration-200"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <aside className={cn(
@@ -253,29 +247,11 @@ function AppContent({ children }: { children: React.ReactNode }) {
              </DropdownMenu>
 
              <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full size-8 sm:size-10 transition-all active:scale-90 group relative overflow-hidden">
-                <AnimatePresence mode="wait">
-                  {isDarkMode ? (
-                    <motion.div
-                      key="moon"
-                      initial={{ y: 20, opacity: 0, rotate: -45 }}
-                      animate={{ y: 0, opacity: 1, rotate: 0 }}
-                      exit={{ y: -20, opacity: 0, rotate: 45 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Moon className="size-3.5 sm:size-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="sun"
-                      initial={{ y: 20, opacity: 0, rotate: -45 }}
-                      animate={{ y: 0, opacity: 1, rotate: 0 }}
-                      exit={{ y: -20, opacity: 0, rotate: 45 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Sun className="size-3.5 sm:size-4 text-orange-500 group-hover:text-amber-500 transition-colors" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {isDarkMode ? (
+                  <Moon className="size-3.5 sm:size-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                ) : (
+                  <Sun className="size-3.5 sm:size-4 text-orange-500 group-hover:text-amber-500 transition-colors" />
+                )}
              </Button>
              <div className="size-px h-4 sm:h-6 bg-border mx-1 sm:mx-1" />
              

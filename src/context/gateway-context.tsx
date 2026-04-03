@@ -59,16 +59,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const settings = JSON.parse(rawSettings);
         const token = sessionStorage.getItem("openclaw.control.token.v1") || "";
 
-        console.log("[GatewayProvider] Starting client for", settings.gatewayUrl);
-
         const client = new GatewayClient({
           url: settings.gatewayUrl,
           token: token,
           onHello: (hello) => {
-            console.log("[GatewayProvider] Connected!", hello);
             setConnected(true);
             setError(null);
-            // Include server info in snapshot for version display
             const snapshotData = hello.payload || hello.snapshot || {};
             setSnapshot({ ...snapshotData, server: hello.server });
             const sn = hello.payload || hello.snapshot;
@@ -85,14 +81,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             }
           },
           onClose: (info) => {
-            console.warn("[GatewayProvider] Closed", info);
             setConnected(false);
             if (info.code !== 1000) {
                 setError(`Disconnected (${info.code}): ${info.reason || "Check your URL/Token"}`);
             }
           },
           onError: (err) => {
-            console.warn("[GatewayProvider] Error", err);
             setError(`无法建立连接。请检查网关地址 (${settings.gatewayUrl}) 是否正确，并确认 OpenClaw 服务端已启动。`);
           }
         });
@@ -101,11 +95,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         client.start();
 
         return () => {
-          console.log("[GatewayProvider] Stopping client");
           client.stop();
         };
     } catch (e) {
-        console.error("Gateway initialization error", e);
         setError("Invalid configuration settings.");
     }
   }, []);
