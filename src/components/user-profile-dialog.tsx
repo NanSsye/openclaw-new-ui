@@ -12,9 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Camera, Trash2 } from "lucide-react";
+import { User, Camera } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
-import { useEffect } from "react";
+import Image from "next/image";
 
 export function UserProfileDialog({
   open,
@@ -30,13 +30,18 @@ export function UserProfileDialog({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) {
-      setAvatar(profile.avatar);
-      setNickname(profile.nickname);
-      setBio(profile.bio);
+  const syncFormWithProfile = () => {
+    setAvatar(profile.avatar);
+    setNickname(profile.nickname);
+    setBio(profile.bio);
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      syncFormWithProfile();
     }
-  }, [open, profile]);
+    onOpenChange(nextOpen);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,7 +55,7 @@ export function UserProfileDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>个人资料</DialogTitle>
@@ -65,7 +70,7 @@ export function UserProfileDialog({
               onClick={() => fileInputRef.current?.click()}
             >
               {avatar ? (
-                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                <Image src={avatar} alt="Avatar" fill unoptimized className="object-cover" />
               ) : (
                 <User className="size-10 text-muted-foreground opacity-50 transition-opacity group-hover:opacity-0" />
               )}

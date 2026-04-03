@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useGateway, PresenceEntry } from "@/context/gateway-context";
 import { Cpu, Globe, Monitor, Shield, Zap, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 export default function InstancesPage() {
   const { presence } = useGateway();
@@ -84,7 +85,7 @@ function InstanceCard({ data }: { data: PresenceEntry }) {
   );
 }
 
-function InfoItem({ icon, label, value }: { icon: any, label: string, value: string }) {
+function InfoItem({ icon, label, value }: { icon: ReactNode, label: string, value: string }) {
     return (
         <div className="space-y-0.5 md:space-y-1">
             <div className="flex items-center gap-1 text-muted-foreground">

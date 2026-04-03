@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { verifyGatewayConnection } from "@/lib/openclaw/gateway-client";
 
 export function AccountSettingsDialog({
   open,
@@ -38,19 +39,24 @@ export function AccountSettingsDialog({
   // Connection settings state
   const [gatewayUrl, setGatewayUrl] = useState("");
   const [gatewayToken, setGatewayToken] = useState("");
+  const [gatewayPassword, setGatewayPassword] = useState("");
+  const [applying, setApplying] = useState(false);
 
   // Load saved settings when dialog opens
   useEffect(() => {
     if (open) {
       const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
       const savedToken = localStorage.getItem("openclaw.control.token.v1");
+      const savedPassword = localStorage.getItem("openclaw.control.password.v1") || sessionStorage.getItem("openclaw.control.password.v1");
       if (rawSettings) {
         try {
           const settings = JSON.parse(rawSettings);
           setGatewayUrl(settings.gatewayUrl || "");
+          setGatewayPassword(settings.password || savedPassword || "");
         } catch {}
       }
       setGatewayToken(savedToken || "");
+      setGatewayPassword(savedPassword || "");
     }
   }, [open]);
 
@@ -60,22 +66,58 @@ export function AccountSettingsDialog({
     { id: "advanced", label: "高级功能", icon: Activity },
   ];
 
-  const handleApply = () => {
-    // Save settings back to localStorage
-    const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
-    const settings = rawSettings ? JSON.parse(rawSettings) : {};
-    settings.gatewayUrl = gatewayUrl;
-    localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
-    if (gatewayToken) {
-      localStorage.setItem("openclaw.control.token.v1", gatewayToken);
-      sessionStorage.setItem("openclaw.control.token.v1", gatewayToken);
+  const handleApply = async () => {
+    const trimmedUrl = gatewayUrl.trim();
+    const trimmedToken = gatewayToken.trim();
+
+    if (!trimmedUrl || !trimmedToken) {
+      toast({
+        title: "配置不完整",
+        description: "请至少填写网关地址和通讯鉴权口令。",
+        variant: "destructive",
+      });
+      return;
     }
 
-    toast({
-      title: "设置已保存",
-      description: "您的连接和安全设置已更新。即将尝试重新连接网关。",
-    });
-    onOpenChange(false);
+    setApplying(true);
+    try {
+      await verifyGatewayConnection({
+        url: trimmedUrl,
+        token: trimmedToken,
+        password: gatewayPassword,
+        timeoutMs: 12000,
+      });
+
+      const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
+      const settings = rawSettings ? JSON.parse(rawSettings) : {};
+      settings.gatewayUrl = trimmedUrl;
+      settings.password = gatewayPassword;
+      localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
+      localStorage.setItem("openclaw.control.token.v1", trimmedToken);
+      sessionStorage.setItem("openclaw.control.token.v1", trimmedToken);
+
+      if (gatewayPassword) {
+        localStorage.setItem("openclaw.control.password.v1", gatewayPassword);
+        sessionStorage.setItem("openclaw.control.password.v1", gatewayPassword);
+      } else {
+        localStorage.removeItem("openclaw.control.password.v1");
+        sessionStorage.removeItem("openclaw.control.password.v1");
+      }
+
+      toast({
+        title: "设置已保存",
+        description: "连接验证成功，新的网关配置已生效。",
+      });
+      onOpenChange(false);
+    } catch (error: unknown) {
+      toast({
+        title: "连接验证失败",
+        description: error instanceof Error ? error.message : "无法连接到网关，请检查配置。",
+        variant: "destructive",
+      });
+    } finally {
+      setApplying(false);
+    }
   };
 
   const ActiveIcon = tabs.find((t) => t.id === activeTab)?.icon || Globe;
@@ -172,10 +214,20 @@ export function AccountSettingsDialog({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">连接协议 (Protocol)</Label>
-                    <Input value="v2026.3.11" className="font-mono text-sm bg-muted/50" disabled />
-                    <p className="text-[10px] text-muted-foreground">此参数为当前客户端硬编码强制绑定的版本。</p>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">系统密码 (Password)</Label>
+                    <Input
+                      value={gatewayPassword}
+                      onChange={(e) => setGatewayPassword(e.target.value)}
+                      type="password"
+                      placeholder="可选，按网关配置填写"
+                      className="bg-muted/50"
+                    />
                   </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">连接协议 (Protocol)</Label>
+                  <Input value="v2026.3.11" className="font-mono text-sm bg-muted/50" disabled />
+                  <p className="text-[10px] text-muted-foreground">此参数为当前客户端硬编码强制绑定的版本。</p>
+                </div>
                 </div>
               </div>
             )}
@@ -214,8 +266,8 @@ export function AccountSettingsDialog({
 
             {/* Bottom Action Bar */}
             <div className="absolute bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-md border-t border-border/50 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-6">取消</Button>
-              <Button onClick={handleApply} className="rounded-xl px-8 shadow-lg shadow-primary/20 gap-2">
+              <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-6" disabled={applying}>取消</Button>
+              <Button onClick={handleApply} className="rounded-xl px-8 shadow-lg shadow-primary/20 gap-2" disabled={applying}>
                 <Save className="size-4" /> 应用修改
               </Button>
             </div>
@@ -247,6 +299,16 @@ export function AccountSettingsDialog({
                     onChange={(e) => setGatewayToken(e.target.value)}
                     type="password"
                     placeholder="输入访问密钥"
+                    className="bg-muted/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">系统密码 (Password)</Label>
+                  <Input
+                    value={gatewayPassword}
+                    onChange={(e) => setGatewayPassword(e.target.value)}
+                    type="password"
+                    placeholder="可选，按网关配置填写"
                     className="bg-muted/50"
                   />
                 </div>
@@ -293,8 +355,8 @@ export function AccountSettingsDialog({
 
           {/* Mobile Bottom Action Bar */}
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/50 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-4">取消</Button>
-            <Button onClick={handleApply} className="rounded-xl px-6 gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-4" disabled={applying}>取消</Button>
+            <Button onClick={handleApply} className="rounded-xl px-6 gap-2" disabled={applying}>
               <Save className="size-4" /> 应用修改
             </Button>
           </div>

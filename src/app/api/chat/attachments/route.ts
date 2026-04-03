@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_PREFIXES = ["image/", "audio/"];
+const ALLOWED_PREFIXES = ["image/", "audio/", "video/"];
 const ALLOWED_EXACT_TYPES = new Set([
   "application/pdf",
   "text/plain",
@@ -24,6 +24,7 @@ function sanitizeFileName(fileName: string) {
 function detectKind(mimeType: string) {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
   return "file";
 }
 

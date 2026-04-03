@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Card, CardContent, CardHeader, CardTitle,
-  CardDescription
-} from "@/components/ui/card";
+import { useEffect, useState, useCallback } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/context/gateway-context";
 import {
@@ -31,27 +28,31 @@ interface Session {
   thinkingLevel?: string;
 }
 
+interface SessionsListResponse {
+  sessions?: Session[];
+}
+
 export default function SessionsPage() {
   const { connected, client } = useGateway();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!connected || !client) return;
     setLoading(true);
     try {
-      const res = await client.request("sessions.list", { limit: 100 });
+      const res = await client.request<SessionsListResponse>("sessions.list", { limit: 100 });
       setSessions(res.sessions || []);
     } catch (e) {
       console.error("Failed to load sessions", e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected]);
 
   useEffect(() => {
     loadSessions();
-  }, [connected, client]);
+  }, [loadSessions]);
 
   // Group sessions by agent prefix
   const grouped = sessions.reduce<Record<string, typeof sessions>>((acc, s) => {

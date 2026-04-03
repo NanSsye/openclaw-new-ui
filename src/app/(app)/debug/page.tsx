@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -7,13 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Bug, Play, RefreshCw, Terminal, Activity, 
-  Database, ShieldAlert, Cpu, Heart, Code2,
-  Lock, Search, Trash2, Zap, BrainCircuit, ListTree
+  Bug, Play, RefreshCw, Activity, 
+  Heart, Zap, BrainCircuit, ListTree
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+type DebugSnapshots = {
+  status: unknown;
+  health: unknown;
+  heartbeat: unknown;
+};
+
+type ModelsListResponse = {
+  models?: Array<Record<string, unknown>>;
+};
 
 const COMMON_METHODS = [
   "status", "health", "last-heartbeat", "models.list", 
@@ -26,36 +35,36 @@ export default function DebugPage() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [snapshots, setSnapshots] = useState<any>({ status: null, health: null, heartbeat: null });
-  const [models, setModels] = useState<any[]>([]);
+  const [snapshots, setSnapshots] = useState<DebugSnapshots>({ status: null, health: null, heartbeat: null });
+  const [models, setModels] = useState<Array<Record<string, unknown>>>([]);
   const [rpcMethod, setRpcMethod] = useState("");
   const [rpcParams, setRpcParams] = useState("{}");
-  const [rpcResult, setRpcResult] = useState<any>(null);
+  const [rpcResult, setRpcResult] = useState<unknown>(null);
   const [rpcError, setRpcError] = useState<string | null>(null);
   const [calling, setCalling] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
       const [status, health, modelsRes, heartbeat] = await Promise.all([
         client.request("status", {}),
         client.request("health", {}),
-        client.request("models.list", {}),
+        client.request<ModelsListResponse>("models.list", {}),
         client.request("last-heartbeat", {})
       ]);
       setSnapshots({ status, health, heartbeat });
-      setModels((modelsRes as any)?.models || []);
-    } catch (err: any) {
-      toast({ title: "采集快照失败", description: err.message, variant: "destructive" });
+      setModels(modelsRes?.models || []);
+    } catch (err: unknown) {
+      toast({ title: "采集快照失败", description: err instanceof Error ? err.message : "采集快照失败", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   const handleCall = async () => {
     if (!client || !rpcMethod) return;
@@ -67,15 +76,16 @@ export default function DebugPage() {
       const res = await client.request(rpcMethod, params);
       setRpcResult(res);
       toast({ title: "调用成功", description: `已执行 ${rpcMethod}` });
-    } catch (err: any) {
-      setRpcError(err.message);
-      toast({ title: "执行失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "RPC 调用失败";
+      setRpcError(message);
+      toast({ title: "执行失败", description: message, variant: "destructive" });
     } finally {
       setCalling(false);
     }
   };
 
-  const renderJson = (json: any) => (
+  const renderJson = (json: unknown) => (
     <div className="rounded-xl overflow-hidden border border-border/50 text-[11px]">
       <SyntaxHighlighter
         language="json"

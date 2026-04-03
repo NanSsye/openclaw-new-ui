@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -105,7 +105,7 @@ export default function TasksPage() {
 
   const selectedJob = jobs.find(j => j.id === selectedJobId);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
@@ -121,9 +121,9 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
-  const fetchRuns = async (jobId: string) => {
+  const fetchRuns = useCallback(async (jobId: string) => {
     if (!client || !connected) return;
     setRunsLoading(true);
     try {
@@ -135,11 +135,11 @@ export default function TasksPage() {
     } finally {
       setRunsLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   useEffect(() => {
     if (selectedJobId) {
@@ -147,7 +147,7 @@ export default function TasksPage() {
     } else {
       setRuns([]);
     }
-  }, [selectedJobId]);
+  }, [selectedJobId, fetchRuns]);
 
   // Sync editingJob when selected job changes
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Card, CardContent, CardHeader, CardTitle
 } from "@/components/ui/card";
@@ -13,11 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { useGateway } from "@/context/gateway-context";
 import {
-  Radio, AlertTriangle, CheckCircle2,
-  RefreshCw, Power, Settings2, Key,
+  Radio, AlertTriangle,
+  RefreshCw, Settings2, Key, MoreVertical, LogOut,
   MessageSquare, Send, Globe, ShieldAlert,
-  Zap, Clock, XCircle, MoreVertical, LogOut,
-  RefreshCcw, Save
+  Zap, Save
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppLoginModal } from "@/components/whatsapp-login-modal";
@@ -47,15 +46,31 @@ interface Snapshot {
   channels?: Record<string, ChannelLegacyStatus>;
 }
 
-interface ConfigResponse {
-  config?: Record<string, unknown>;
-  hash?: string;
-}
-
 interface ChannelConfig {
   enabled?: boolean;
   [key: string]: unknown;
 }
+
+type ChannelsStatusResponse = Snapshot;
+
+type ConfigGetResponse = {
+  config?: {
+    channels?: Record<string, ChannelConfig>;
+    [key: string]: unknown;
+  };
+  hash?: string;
+};
+
+type ChannelConfigRoot = {
+  channels?: Record<string, ChannelConfig>;
+  [key: string]: unknown;
+};
+
+type ChannelAccountView = ChannelAccount & {
+  accountId: string;
+  channelId: string;
+  brand: ReturnType<typeof getChannelBrand>;
+};
 
 // 获取频道品牌的辅助函数
 const getChannelBrand = (id: string) => {
@@ -79,22 +94,22 @@ export default function ChannelsPage() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   
-  const [fullConfig, setFullConfig] = useState<any>(null);
+  const [fullConfig, setFullConfig] = useState<ChannelConfigRoot | null>(null);
   const [configHash, setConfigHash] = useState<string | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
 
-  const loadChannels = async (probe = false) => {
+  const loadChannels = useCallback(async (probe = false) => {
     if (!connected || !client) return;
     setLoading(true);
     try {
-      const res = await client.request("channels.status", { probe, timeoutMs: 8000 });
+      const res = await client.request<ChannelsStatusResponse>("channels.status", { probe, timeoutMs: 8000 });
       setSnapshot(res);
-    } catch (e: any) {
-      toast({ title: "加载失败", description: e.message || "无法获取频道列表", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "加载失败", description: e instanceof Error ? e.message : "无法获取频道列表", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   const handleOpenLogin = (channelId: string) => {
     setActiveChannelId(channelId);
@@ -106,18 +121,18 @@ export default function ChannelsPage() {
     setActiveChannelId(channelId);
     setLoading(true);
     try {
-        const res: any = await client.request("config.get", {});
+        const res = await client.request<ConfigGetResponse>("config.get", {});
         setFullConfig(res.config);
         setConfigHash(res.hash);
         setConfigModalOpen(true);
-    } catch (e: any) {
-        toast({ title: "加载配置失败", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+        toast({ title: "加载配置失败", description: e instanceof Error ? e.message : "读取配置失败", variant: "destructive" });
     } finally {
         setLoading(false);
     }
   };
 
-  const handleSaveConfig = async (updatedChannelConfig: any) => {
+  const handleSaveConfig = async (updatedChannelConfig: ChannelConfig) => {
     if (!client || !fullConfig || !activeChannelId) return;
     setSavingConfig(true);
     try {
@@ -133,8 +148,8 @@ export default function ChannelsPage() {
         toast({ title: "配置已保存", description: `频道 ${activeChannelId} 的设置已更新。` });
         loadChannels();
         setConfigModalOpen(false);
-    } catch (e: any) {
-        toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+        toast({ title: "保存失败", description: e instanceof Error ? e.message : "保存配置失败", variant: "destructive" });
     } finally {
         setSavingConfig(false);
     }
@@ -146,19 +161,19 @@ export default function ChannelsPage() {
       await client.request("channels.logout", { channel: channelId });
       toast({ title: "已注销", description: `频道 ${channelId} 已安全退出` });
       loadChannels();
-    } catch (e: any) {
-      toast({ title: "注销失败", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "注销失败", description: e instanceof Error ? e.message : "注销失败", variant: "destructive" });
     }
   };
 
   useEffect(() => {
     loadChannels();
-  }, [connected, client]);
+  }, [loadChannels]);
 
   // 平铺展示所有账号
   const flattenedAccounts = useMemo(() => {
-    if (!snapshot?.channelAccounts) return [];
-    const accounts: any[] = [];
+    if (!snapshot?.channelAccounts) return [] as ChannelAccountView[];
+    const accounts: ChannelAccountView[] = [];
     const channelAccounts = snapshot.channelAccounts;
     const order = snapshot.channelOrder || Object.keys(channelAccounts);
 
@@ -179,9 +194,10 @@ export default function ChannelsPage() {
             return;
         }
 
-        channelData.forEach((acc: any) => {
+        channelData.forEach((acc) => {
             accounts.push({
                 ...acc,
+                accountId: acc.accountId || "default",
                 // 状态回退逻辑
                 running: acc.running ?? legacyStatus.running,
                 connected: acc.connected ?? legacyStatus.connected,
@@ -219,7 +235,7 @@ export default function ChannelsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
           {flattenedAccounts.length > 0 ? (
-            flattenedAccounts.map((account: any, i: number) => (
+            flattenedAccounts.map((account, i: number) => (
               <ChannelAccountCard 
                 key={`${account.channelId}-${account.accountId}-${i}`} 
                 data={account} 
@@ -250,6 +266,7 @@ export default function ChannelsPage() {
 
       {/* 频道配置 Modal */}
       <ChannelConfigModal 
+        key={`${activeChannelId || "none"}-${configModalOpen ? "open" : "closed"}`}
         open={configModalOpen}
         onOpenChange={setConfigModalOpen}
         channelId={activeChannelId || ""}
@@ -261,15 +278,20 @@ export default function ChannelsPage() {
   );
 }
 
-function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loading }: any) {
-    const [localConfig, setLocalConfig] = useState<any>(config);
+type ChannelConfigModalProps = {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    channelId: string;
+    config: ChannelConfig;
+    onSave: (config: ChannelConfig) => void;
+    loading: boolean;
+};
+
+function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loading }: ChannelConfigModalProps) {
+    const [localConfig, setLocalConfig] = useState<ChannelConfig>(config);
     const [mode, setMode] = useState<"form" | "json">("form");
 
-    useEffect(() => {
-        if (open) setLocalConfig(config);
-    }, [open, config]);
-
-    const updateField = (field: string, value: any) => {
+    const updateField = (field: string, value: unknown) => {
         setLocalConfig({ ...localConfig, [field]: value });
     };
 
@@ -336,8 +358,8 @@ function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loa
                                 value={JSON.stringify(localConfig, null, 2)}
                                 onChange={(e) => {
                                     try {
-                                        setLocalConfig(JSON.parse(e.target.value));
-                                    } catch(err) {}
+                                        setLocalConfig(JSON.parse(e.target.value) as ChannelConfig);
+                                    } catch {}
                                 }}
                                 className="w-full h-64 p-4 rounded-3xl bg-muted/30 font-mono text-xs focus:ring-1 ring-primary/20 outline-none border border-border/40"
                                 spellCheck={false}
@@ -362,12 +384,12 @@ function ChannelConfigModal({ open, onOpenChange, channelId, config, onSave, loa
     );
 }
 
-function ChannelAccountCard({ data, onLogin, onLogout, onConfig, onRefresh }: { data: any, onLogin: () => void, onLogout: () => void, onConfig: () => void, onRefresh: () => void }) {
+function ChannelAccountCard({ data, onLogin, onLogout, onConfig }: { data: ChannelAccountView, onLogin: () => void, onLogout: () => void, onConfig: () => void, onRefresh: () => void }) {
   const isHealthy = data.connected === true && data.running;
   const isWarning = data.running && (data.connected === false || data.connected === undefined);
-  const isOffline = !data.running;
   const isWhatsApp = data.channelId?.toLowerCase().includes("whatsapp");
-  const recentActivity = data.lastInboundAt && (Date.now() - data.lastInboundAt < 10 * 60 * 1000);
+  const [renderedAt] = useState(() => Date.now());
+  const recentActivity = typeof data.lastInboundAt === "number" && (renderedAt - data.lastInboundAt < 10 * 60 * 1000);
   
   const statusLabel = isHealthy ? "Online" : recentActivity ? "Active" : data.running ? "Syncing" : "Offline";
   

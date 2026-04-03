@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
-import { GatewayClient, GatewayHelloOk, GatewayEventFrame } from "@/lib/openclaw/gateway-client";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { GatewayClient } from "@/lib/openclaw/gateway-client";
 
 export interface PresenceEntry {
   id: string;
@@ -49,7 +49,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceEntry[]>([]);
   const [health, setHealth] = useState<HealthInfo | null>(null);
-  const clientRef = useRef<GatewayClient | null>(null);
+  const [client, setClient] = useState<GatewayClient | null>(null);
 
   useEffect(() => {
     const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
@@ -58,10 +58,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     try {
         const settings = JSON.parse(rawSettings);
         const token = sessionStorage.getItem("openclaw.control.token.v1") || "";
+        const password = sessionStorage.getItem("openclaw.control.password.v1") || settings.password || "";
 
         const client = new GatewayClient({
           url: settings.gatewayUrl,
           token: token,
+          password: password,
           onHello: (hello) => {
             setConnected(true);
             setError(null);
@@ -86,24 +88,30 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 setError(`Disconnected (${info.code}): ${info.reason || "Check your URL/Token"}`);
             }
           },
-          onError: (err) => {
+          onError: () => {
             setError(`无法建立连接。请检查网关地址 (${settings.gatewayUrl}) 是否正确，并确认 OpenClaw 服务端已启动。`);
           }
         });
 
-        clientRef.current = client;
+        const attachClientTimer = setTimeout(() => {
+          setClient(client);
+        }, 0);
         client.start();
 
         return () => {
+          clearTimeout(attachClientTimer);
           client.stop();
         };
-    } catch (e) {
-        setError("Invalid configuration settings.");
+    } catch {
+        const errorTimer = setTimeout(() => {
+          setError("Invalid configuration settings.");
+        }, 0);
+        return () => clearTimeout(errorTimer);
     }
   }, []);
 
   return (
-    <GatewayContext.Provider value={{ connected, snapshot, error, presence, health, client: clientRef.current }}>
+    <GatewayContext.Provider value={{ connected, snapshot, error, presence, health, client }}>
       {children}
     </GatewayContext.Provider>
   );

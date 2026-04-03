@@ -42,6 +42,7 @@ next-env.d.ts
 
 # community api data
 community-api/data/*.json
+community-api/data/attachments/
 community-api/node_modules/
 
 # local IDE and Claude files
@@ -52,3 +53,10 @@ android/.idea/
 # local logs and temp files
 hs_err_pid*.log
 replay_pid*.log
+
+# native build outputs
+android/.gradle/
+android/**/build/
+android/app/src/main/assets/
+ios/**/DerivedData/
+ios/**/public/

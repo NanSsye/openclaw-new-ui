@@ -1,30 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useEffect, useState, type ReactNode, type ButtonHTMLAttributes } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useGateway } from "@/context/gateway-context";
 import {
   Zap, CheckCircle2, Globe, Shield,
-  Settings2, Key, Languages, Palette,
-  Activity, Monitor, Database, AlertTriangle,
+  Key, Languages, Palette,
+  Activity, Monitor, AlertTriangle,
   Github, QrCode, ExternalLink
 } from "lucide-react";
+import Image from "next/image";
+
+type StoredSettings = {
+  gatewayUrl?: string;
+  [key: string]: unknown;
+};
+
+type MetricCardProps = {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+};
+
+type DetailRowProps = {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  isMono?: boolean;
+  isLast?: boolean;
+};
+
+type DashboardButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  children: ReactNode;
+  variant?: "default" | "outline";
+};
 
 export default function OverviewPage() {
-  const [settings, setSettings] = useState<any>(null);
-  const { connected, snapshot, error, presence, health } = useGateway();
+  const [settings, setSettings] = useState<StoredSettings | null>(null);
+  const { connected, error, presence, health } = useGateway();
 
   useEffect(() => {
     const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
     if (rawSettings) {
-      setSettings(JSON.parse(rawSettings));
+      const timer = setTimeout(() => {
+        try {
+          setSettings(JSON.parse(rawSettings) as StoredSettings);
+        } catch {
+          setSettings(null);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, []);
 
-  // 格式化运行时间
-  const uptime = health?.uptime ? `${Math.floor(health.uptime / 3600)}h` : "N/A";
-  
   // 模拟或提取系统指标 (OpenClaw 后端若提供这些数据则从 health 中获取)
   const cpuUsage = health?.cpuUsage != null ? `${health.cpuUsage}%` : "24%";
   const latency = connected ? "45ms" : "---";
@@ -159,9 +189,11 @@ export default function OverviewPage() {
 
                     {/* 公众号 */}
                     <div className="flex items-center gap-3 p-4 rounded-xl border border-border/50">
-                        <img
+                        <Image
                             src="/公众号.jpg"
                             alt="公众号"
+                            width={80}
+                            height={80}
                             className="size-16 lg:size-20 rounded-lg object-cover"
                         />
                         <div className="text-left">
@@ -177,7 +209,7 @@ export default function OverviewPage() {
   );
 }
 
-function MetricCard({ icon, label, value, sub }: { icon: any, label: string, value: string, sub: string }) {
+function MetricCard({ icon, label, value, sub }: MetricCardProps) {
   return (
     <Card className="border-border/50 shadow-sm hover:border-primary/20 transition-all bg-background group">
       <CardContent className="p-3 lg:p-6 flex items-start gap-3 lg:gap-4">
@@ -194,7 +226,7 @@ function MetricCard({ icon, label, value, sub }: { icon: any, label: string, val
   );
 }
 
-function DetailRow({ icon, label, value, isMono = false, isLast = false }: { icon: any, label: string, value: string, isMono?: boolean, isLast?: boolean }) {
+function DetailRow({ icon, label, value, isMono = false, isLast = false }: DetailRowProps) {
     return (
         <div className={cn(
             "px-4 lg:px-8 py-3 lg:py-5 flex items-center justify-between hover:bg-muted/5 transition-colors",
@@ -214,9 +246,9 @@ function DetailRow({ icon, label, value, isMono = false, isLast = false }: { ico
     );
 }
 
-function Button({ children, variant = "default", className, ...props }: any) {
+function Button({ children, variant = "default", className, ...props }: DashboardButtonProps) {
     const base = "inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors focus:outline-none disabled:opacity-50 disabled:pointer-events-none";
-    const variants: any = {
+    const variants: Record<NonNullable<DashboardButtonProps["variant"]>, string> = {
         default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20",
         outline: "border border-border/50 bg-background hover:bg-muted/50"
     };

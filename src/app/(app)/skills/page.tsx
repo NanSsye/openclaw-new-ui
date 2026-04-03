@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -10,9 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Zap, RefreshCw, Search, Box, Info, AlertTriangle,
-  CheckCircle2, Download, ShieldCheck, Key, ExternalLink,
-  ChevronDown, ChevronUp, Store, Star, TrendingUp, ArrowRight, Loader2, Plus
+  Zap, RefreshCw, Search, AlertTriangle,
+  Download, Key, ExternalLink,
+  ChevronDown, ChevronUp, Store, Star, ArrowRight, Loader2, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -64,10 +64,6 @@ interface MarketSkill {
   version: string | null;
   updatedAt: number;
   score: number;
-}
-
-interface MarketApiResponse {
-  results: MarketSkill[];
 }
 
 // Featured Plugin API types
@@ -130,7 +126,7 @@ export default function SkillsPage() {
   });
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
 
-  const fetchFeaturedPlugins = async () => {
+  const fetchFeaturedPlugins = useCallback(async () => {
     setFeaturedLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_PLUGIN_MARKET_API || "https://xianan.xin:1563";
@@ -143,7 +139,7 @@ export default function SkillsPage() {
       } else {
         setFeaturedPlugins([]);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof Error && err.name === "TimeoutError") {
         console.error("Featured plugins fetch timeout");
       } else {
@@ -153,7 +149,7 @@ export default function SkillsPage() {
     } finally {
       setFeaturedLoading(false);
     }
-  };
+  }, []);
 
   const handleUploadSubmit = async () => {
     if (!uploadForm.name || !uploadForm.description || !uploadForm.author || !uploadForm.version || !uploadForm.github_url) {
@@ -184,14 +180,14 @@ export default function SkillsPage() {
       } else {
         toast({ title: "上传失败", description: data.error || "未知错误", variant: "destructive" });
       }
-    } catch (err) {
+    } catch {
       toast({ title: "上传失败", description: "网络错误", variant: "destructive" });
     } finally {
       setUploadSubmitting(false);
     }
   };
 
-  const fetchMarketSkills = async () => {
+  const fetchMarketSkills = useCallback(async () => {
     setMarketLoading(true);
     try {
       const query = marketSearch || "a";
@@ -229,7 +225,7 @@ export default function SkillsPage() {
     } finally {
       setMarketLoading(false);
     }
-  };
+  }, [marketSearch]);
 
   useEffect(() => {
     if (activeTab === "market") {
@@ -237,13 +233,13 @@ export default function SkillsPage() {
     } else if (activeTab === "featured") {
       fetchFeaturedPlugins();
     }
-  }, [activeTab, marketSort]);
+  }, [activeTab, marketSort, fetchFeaturedPlugins, fetchMarketSkills]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
-      const res = await client.request("skills.status", {});
+      const res = await client.request<SkillsStatusResponse>("skills.status", {});
       setReport(res);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "未知错误";
@@ -251,11 +247,11 @@ export default function SkillsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   const skills = useMemo(() => {
     const list: Skill[] = report?.skills || [];
@@ -284,7 +280,7 @@ export default function SkillsPage() {
       else map["other"].items.push(skill);
     });
 
-    return Object.entries(map).filter(([_, group]) => group.items.length > 0);
+    return Object.entries(map).filter(([, group]) => group.items.length > 0);
   }, [skills]);
 
   const toggleSkill = async (skillKey: string, currentDisabled: boolean) => {
@@ -432,7 +428,7 @@ export default function SkillsPage() {
                             </div>
                             <Switch
                               checked={!skill.disabled}
-                              onCheckedChange={(checked) => toggleSkill(skill.skillKey, skill.disabled ?? false)}
+                              onCheckedChange={() => toggleSkill(skill.skillKey, skill.disabled ?? false)}
                               disabled={busyKey === skill.skillKey}
                               className="data-[state=checked]:bg-emerald-500 scale-90"
                             />

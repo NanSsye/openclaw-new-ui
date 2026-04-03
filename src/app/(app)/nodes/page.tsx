@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
-  Server, Shield, Smartphone, RefreshCw, Activity,
-  CheckCircle2, XCircle, Clock, Globe, Cpu,
-  Plus, RotateCw, Trash2, ShieldAlert, Key, ShieldCheck
+  Server, Shield, Smartphone, RefreshCw, Activity, Globe, Trash2,
+  ShieldAlert, Key, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +65,7 @@ export default function NodesPage() {
   const [devices, setDevices] = useState<DevicesState>({ pending: [], paired: [] });
   const [activeTab, setActiveTab] = useState("monitor");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
@@ -85,11 +84,11 @@ export default function NodesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   const handleApprove = async (requestId: string) => {
     if (!client) return;

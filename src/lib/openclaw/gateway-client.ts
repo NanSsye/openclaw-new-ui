@@ -3,7 +3,7 @@ import { generateUUID } from "./uuid";
 export type GatewayEventFrame = {
   type: "event";
   event: string;
-  payload?: any;
+  payload?: unknown;
   seq?: number;
 };
 
@@ -11,9 +11,46 @@ export type GatewayResponseFrame = {
   type: "res";
   id: string;
   ok: boolean;
-  payload?: any;
-  error?: { code: string; message: string; details?: any };
+  payload?: unknown;
+  error?: { code: string; message: string; details?: unknown };
 };
+
+type GatewayPendingRequest<T = unknown> = {
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toGatewayError(error: unknown, fallback = "Gateway request failed") {
+  if (error instanceof Error) return error;
+
+  if (typeof error === "string" && error.trim()) {
+    return new Error(error);
+  }
+
+  if (error && typeof error === "object") {
+    const maybeError = error as { code?: unknown; message?: unknown; details?: unknown };
+    const messageParts = [
+      typeof maybeError.message === "string" && maybeError.message.trim() ? maybeError.message.trim() : "",
+      typeof maybeError.code === "string" && maybeError.code.trim() ? `[${maybeError.code.trim()}]` : "",
+    ].filter(Boolean);
+
+    const message = messageParts.join(" ") || fallback;
+    const normalized = new Error(message);
+    if (maybeError.details !== undefined) {
+      try {
+        (normalized as Error & { cause?: unknown }).cause = maybeError.details;
+      } catch {}
+    }
+    return normalized;
+  }
+
+  return new Error(fallback);
+}
 
 export type GatewayHelloOk = {
   type: "hello-ok";
@@ -25,8 +62,8 @@ export type GatewayHelloOk = {
   features?: {
       scopes?: string[];
   };
-  snapshot?: any;
-  payload?: any;
+  snapshot?: unknown;
+  payload?: unknown;
 };
 
 export type GatewayBrowserClientOptions = {
@@ -35,27 +72,160 @@ export type GatewayBrowserClientOptions = {
   password?: string;
   onHello?: (hello: GatewayHelloOk) => void;
   onEvent?: (evt: GatewayEventFrame) => void;
-  onClose?: (info: { code: number; reason: string; error?: any }) => void;
-  onError?: (err: any) => void;
+  onClose?: (info: { code: number; reason: string; error?: unknown }) => void;
+  onError?: (err: unknown) => void;
 };
+
+type VerifyGatewayConnectionOptions = {
+  url: string;
+  token?: string;
+  password?: string;
+  timeoutMs?: number;
+};
+
+export function verifyGatewayConnection({
+  url,
+  token,
+  password,
+  timeoutMs = 10000,
+}: VerifyGatewayConnectionOptions): Promise<GatewayHelloOk> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let ws: WebSocket | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const requestId = generateUUID();
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+      }
+    };
+
+    const finish = (handler: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      handler();
+      try {
+        ws?.close(1000, "done");
+      } catch {}
+    };
+
+    try {
+      let targetUrl = url;
+      if (token && !targetUrl.includes("token=")) {
+        const sep = targetUrl.includes("?") ? "&" : "?";
+        targetUrl = `${targetUrl}${sep}token=${token}`;
+      }
+
+      ws = new WebSocket(targetUrl);
+
+      timeout = setTimeout(() => {
+        finish(() => reject(new Error("连接超时，请检查网关地址或令牌是否正确")));
+      }, timeoutMs);
+
+      ws.onopen = () => {
+        const frame = {
+          type: "req",
+          id: requestId,
+          method: "connect",
+          params: {
+            minProtocol: 1,
+            maxProtocol: 5,
+            client: {
+              id: "openclaw-control-ui",
+              version: "v2026.3.11",
+              platform: "web",
+              mode: "webchat",
+            },
+            role: "operator",
+            scopes: ["operator.admin", "operator.approvals", "operator.pairing", "operator.read", "operator.write"],
+            auth: {
+              token,
+              password,
+            },
+          },
+        };
+
+        ws?.send(JSON.stringify(frame));
+      };
+
+      ws.onmessage = (ev) => {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(String(ev.data));
+        } catch {
+          return;
+        }
+
+        if (isRecord(parsed) && parsed.type === "hello-ok") {
+          finish(() => resolve(parsed as GatewayHelloOk));
+          return;
+        }
+
+        if (isRecord(parsed) && parsed.type === "res" && parsed.id === requestId) {
+          if (parsed.ok) {
+            const payload = parsed.payload ?? {};
+            finish(() => resolve(payload as GatewayHelloOk));
+          } else {
+            finish(() =>
+              reject(
+                toGatewayError(
+                  isRecord(parsed.error) ? parsed.error : undefined,
+                  "网关连接验证失败",
+                ),
+              ),
+            );
+          }
+        }
+      };
+
+      ws.onerror = () => {
+        finish(() => reject(new Error("无法连接到网关，请检查地址、令牌或网络")));
+      };
+
+      ws.onclose = (ev) => {
+        if (!settled) {
+          finish(() =>
+            reject(new Error(ev.reason || `连接已关闭 (${ev.code})`)),
+          );
+        }
+      };
+    } catch (error) {
+      finish(() =>
+        reject(error instanceof Error ? error : new Error("创建网关连接失败")),
+      );
+    }
+  });
+}
 
 export class GatewayClient {
   private ws: WebSocket | null = null;
-  private pending = new Map<string, { resolve: any, reject: any, timer: any }>();
+  private pending = new Map<string, GatewayPendingRequest>();
   private closed = false;
   private backoffMs = 800;
   private isConnecting = false;
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private helloDelivered = false;
 
   constructor(public opts: GatewayBrowserClientOptions) {}
 
   start() {
     this.closed = false;
+    this.helloDelivered = false;
     this.connect();
   }
 
   stop() {
     this.closed = true;
+    this.helloDelivered = false;
     this.ws?.close();
     this.ws = null;
   }
@@ -130,8 +300,15 @@ export class GatewayClient {
 
   private handleClose(code: number, reason: string) {
     this.ws = null;
+    this.helloDelivered = false;
     this.opts.onClose?.({ code, reason });
     this.scheduleReconnect();
+  }
+
+  private emitHelloOnce(hello: GatewayHelloOk) {
+    if (this.helloDelivered) return;
+    this.helloDelivered = true;
+    this.opts.onHello?.(hello);
   }
 
   private sendConnect() {
@@ -154,48 +331,50 @@ export class GatewayClient {
 
     console.log("[Gateway] Sending connect request...");
     this.request("connect", params, 15000)
-      .then((hello: any) => {
+      .then((hello) => {
         console.log("[Gateway] Connect successful", hello);
-        if (hello.features?.scopes) {
+        if (isRecord(hello) && isRecord(hello.features) && Array.isArray(hello.features.scopes)) {
             console.log("[Gateway] Scopes granted:", hello.features.scopes);
         }
         this.backoffMs = 800;
         this.isConnecting = false;
-        this.opts.onHello?.(hello);
+        this.emitHelloOnce(hello as GatewayHelloOk);
       })
       .catch((err) => {
         this.isConnecting = false;
-        console.error("[Gateway] Connect request failed", err);
+        console.error("[Gateway] Connect request failed", toGatewayError(err, "网关 connect 请求失败"));
         // Special case: if connect failed with missing scope, try changing client id/mode?
         this.ws?.close();
       });
   }
 
   private handleMessage(raw: string) {
-    let parsed: any;
+    let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch { return; }
 
+    if (!isRecord(parsed)) return;
+
     if (parsed.type === "hello-ok") {
-        this.opts.onHello?.(parsed);
+        this.emitHelloOnce(parsed as GatewayHelloOk);
         return;
     }
 
     if (parsed.type === "event") {
-      this.opts.onEvent?.(parsed);
+      this.opts.onEvent?.(parsed as GatewayEventFrame);
     } else if (parsed.type === "res") {
-      const pending = this.pending.get(parsed.id);
+      const pending = typeof parsed.id === "string" ? this.pending.get(parsed.id) : undefined;
       if (pending) {
         clearTimeout(pending.timer);
-        this.pending.delete(parsed.id);
+        this.pending.delete(parsed.id as string);
         if (parsed.ok) pending.resolve(parsed.payload);
-        else pending.reject(parsed.error);
+        else pending.reject(toGatewayError(parsed.error));
       }
     }
   }
 
-  request(method: string, params?: any, timeoutMs: number = 30000): Promise<any> {
+  request<T = unknown>(method: string, params?: unknown, timeoutMs: number = 30000): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error("Not connected"));
     }
@@ -208,7 +387,7 @@ export class GatewayClient {
       params
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
           if (this.pending.has(id)) {
               this.pending.delete(id);

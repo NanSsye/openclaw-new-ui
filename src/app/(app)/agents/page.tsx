@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, RefreshCw, Cpu, Box, Fingerprint, ChevronDown, Key, FileText, Wrench, Brain, Settings, CheckCircle2, XCircle } from "lucide-react";
+import { Bot, RefreshCw, Cpu, FileText, Wrench, Brain, Settings, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // 配置 API 返回的接口
@@ -72,7 +72,7 @@ export default function AgentsPage() {
   const agents: AgentConfig[] = configData?.parsed?.agents?.list || [];
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
@@ -97,11 +97,11 @@ export default function AgentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, selectedAgentId, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   // 获取模型显示名称
   const getModelName = (modelId?: string) => {
@@ -116,12 +116,6 @@ export default function AgentsPage() {
   };
 
   // 获取工具统计
-  const getToolStats = (agent: AgentConfig) => {
-    const profile = agent.tools?.profile || "未设置";
-    const alsoAllowCount = agent.tools?.alsoAllow?.length || 0;
-    return { profile, alsoAllowCount };
-  };
-
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] animate-in fade-in duration-300">
       {/* Page Header - Mobile Only */}

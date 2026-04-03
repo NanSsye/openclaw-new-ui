@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -71,7 +71,7 @@ export default function UsagePage() {
     };
   }, [days]);
 
-  const fetchUsage = async () => {
+  const fetchUsage = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
@@ -119,11 +119,11 @@ export default function UsagePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, endDate, startDate, toast]);
 
   useEffect(() => {
     fetchUsage();
-  }, [client, connected, startDate, endDate]);
+  }, [fetchUsage]);
 
   const totals = costData?.totals || sessionsData?.totals || { totalTokens: 0, totalCost: 0, input: 0, output: 0, cacheRead: 0 };
   const daily: DailyUsage[] = costData?.daily || [];

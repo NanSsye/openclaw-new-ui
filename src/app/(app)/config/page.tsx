@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +13,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Settings, Save, Play, RefreshCw, Search,
-  Code, Layout, FileJson, AlertCircle, CheckCircle2,
-  ChevronRight, Globe, Shield, MessageSquare, Zap, Cpu,
-  Database, Bell, Terminal, Palette, Layers, Box, ChevronDown
+  Settings, Save, Play, RefreshCw,
+  Code, Layout, FileJson, AlertCircle,
+  Globe, Shield, MessageSquare, Zap, Cpu,
+  Terminal, Palette, Box, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from "@monaco-editor/react";
+
+type ConfigJson = Record<string, unknown>;
+
+type ConfigSnapshot = {
+  hash?: string;
+  raw?: string;
+  config?: ConfigJson;
+  [key: string]: unknown;
+};
+
+type ConfigResponse = ConfigSnapshot;
+
+type ApplyWindow = Window & {
+  _applySessionKey?: string;
+};
 
 const SECTIONS = [
   { id: "agents", label: "代理中心 (Agents)", icon: Cpu, desc: "管理多智能体身份、模型及心跳" },
@@ -41,31 +55,31 @@ export default function ConfigPage() {
   const [activeSection, setActiveSection] = useState("agents");
   const [rawConfig, setRawConfig] = useState("");
   const [originalRaw, setOriginalRaw] = useState("");
-  const [configObj, setConfigObj] = useState<any>({});
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [configObj, setConfigObj] = useState<ConfigJson>({});
+  const [snapshot, setSnapshot] = useState<ConfigSnapshot | null>(null);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
     try {
-      const res: any = await client.request("config.get", {});
+      const res = await client.request<ConfigResponse>("config.get", {});
       setSnapshot(res);
       const raw = res.raw || JSON.stringify(res.config || {}, null, 2);
       setRawConfig(raw);
       setOriginalRaw(raw);
       setConfigObj(res.config || {});
-    } catch (err: any) {
-      toast({ title: "加载配置失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "加载配置失败", description: err instanceof Error ? err.message : "加载配置失败", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [client, connected]);
+  }, [fetchData]);
 
   const isDirty = rawConfig !== originalRaw;
 
@@ -89,8 +103,8 @@ export default function ConfigPage() {
       });
       toast({ title: "保存成功", description: "配置已保存到磁盘" });
       fetchData();
-    } catch (err: any) {
-      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "保存失败", description: err instanceof Error ? err.message : "保存配置失败", variant: "destructive" });
       console.error("[Config] Save failed:", err);
     } finally {
       setSaving(false);
@@ -112,25 +126,29 @@ export default function ConfigPage() {
       await client.request("config.apply", {
         raw: rawConfig,
         baseHash,
-        sessionKey: (window as any)._applySessionKey || "default-session"
+        sessionKey: (window as ApplyWindow)._applySessionKey || "default-session"
       });
       toast({ title: "应用成功", description: "配置已应用，系统已重新加载" });
       fetchData();
-    } catch (err: any) {
-      toast({ title: "应用失败", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "应用失败", description: err instanceof Error ? err.message : "应用配置失败", variant: "destructive" });
       console.error("[Config] Apply failed:", err);
     } finally {
       setApplying(false);
     }
   };
 
-  const handleFormUpdate = (path: string, value: any) => {
-    const next = { ...configObj };
+  const handleFormUpdate = (path: string, value: string | number | boolean) => {
+    const next: ConfigJson = { ...configObj };
     const parts = path.split(".");
-    let current = next;
+    let current: ConfigJson = next;
     for (let i = 0; i < parts.length - 1; i++) {
-      if (!current[parts[i]]) current[parts[i]] = {};
-      current = current[parts[i]];
+      const key = parts[i];
+      const existing = current[key];
+      if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
+        current[key] = {};
+      }
+      current = current[key] as ConfigJson;
     }
     current[parts[parts.length - 1]] = value;
     setConfigObj(next);
@@ -138,7 +156,12 @@ export default function ConfigPage() {
   };
 
   const renderField = (label: string, path: string, type: "string" | "number" | "boolean", description?: string) => {
-    const value = path.split(".").reduce((o, i) => o?.[i], configObj);
+    const value = path.split(".").reduce<unknown>((acc, key) => {
+      if (typeof acc === "object" && acc !== null && key in acc) {
+        return (acc as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, configObj);
     return (
       <div className="group space-y-2 p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/30 transition-all">
         <div className="flex items-center justify-between">
@@ -242,7 +265,7 @@ export default function ConfigPage() {
                 <AlertCircle className="size-3" /> 注意事项
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                部分配置更改（如监听端口）可能需要系统完全重启。建议优先使用"应用并启动"进行热更新。
+                部分配置更改（如监听端口）可能需要系统完全重启。建议优先使用“应用并启动”进行热更新。
               </p>
             </div>
           </div>
@@ -375,7 +398,7 @@ export default function ConfigPage() {
                   <FileJson className="size-8 text-muted-foreground stroke-1" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">需要配置更深层的参数？</p>
-                    <p className="text-xs text-muted-foreground italic">表单仅展示常用项，您可以切换到"源码模式"解锁 100% 的配置权限。</p>
+                    <p className="text-xs text-muted-foreground italic">表单仅展示常用项，您可以切换到“源码模式”解锁 100% 的配置权限。</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => setMode("raw")} className="rounded-xl">
                     进入源码编辑

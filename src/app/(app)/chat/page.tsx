@@ -1,41 +1,146 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, memo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, memo, useCallback, type ReactNode, type ComponentPropsWithoutRef, type ComponentType, type JSX } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Send, User, Bot, Paperclip, ChevronDown, Check,
+  Send, User, Bot, ChevronDown, Check,
   Plus, Terminal, Wrench, BarChart2, SquareTerminal,
-  MessagesSquare, Clock, XCircle, ChevronRight,
-  MoreHorizontal, Trash2, Power, Settings2, Key,
-  BarChart, ListTodo, FileText, Brain, ChevronDownCircle,
-  RotateCcw, Box, StopCircle, Eye, Zap, Book, Download,
+  MessagesSquare, XCircle, ChevronRight,
+  Trash2, BarChart, FileText, Brain,
+  RotateCcw, Box, StopCircle, Zap, Book, Download,
   Monitor, X, CheckCircle2, Mic, Square, ImageIcon, Music4, LoaderCircle, Film
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useGateway } from "@/context/gateway-context";
 import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
+import type { GatewayEventFrame } from "@/lib/openclaw/gateway-client";
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 
-const SLASH_COMMANDS = [
+type SlashCommandCategory = "session" | "model" | "tools" | "agents";
+
+type SlashCommand = {
+  name: string;
+  label: string;
+  description: string;
+  args?: string;
+  category: SlashCommandCategory;
+  icon: ComponentType<{ className?: string }>;
+};
+
+type MarkdownNodeProps<T extends keyof JSX.IntrinsicElements> =
+  ComponentPropsWithoutRef<T> & {
+    node?: unknown;
+    inline?: boolean;
+    children?: ReactNode;
+  };
+
+type ChatContentPart = {
+  type?: string;
+  text?: string;
+  content?: unknown;
+  name?: string;
+  arguments?: unknown;
+  args?: unknown;
+  toolCallId?: string;
+  tool_call_id?: string;
+  thinking?: string;
+  thought?: string;
+  result?: unknown;
+  [key: string]: unknown;
+};
+
+type ChatMessage = {
+  id?: string;
+  role?: string;
+  content?: string | ChatContentPart[] | ChatContentPart | null;
+  text?: string;
+  attachments?: ChatAttachment[];
+  files?: ChatAttachment[];
+  createdAt?: string | number;
+  timestamp?: string | number;
+  ts?: string | number;
+  sender?: string;
+  from?: string;
+  agentId?: string;
+  name?: string;
+  arguments?: unknown;
+  args?: unknown;
+  thinking?: string;
+  thought?: string;
+  toolCallId?: string;
+  tool_call_id?: string;
+  runId?: string;
+  partIndex?: number;
+  [key: string]: unknown;
+};
+
+type SessionUsage = {
+  input?: number;
+  output?: number;
+  [key: string]: unknown;
+};
+
+type SessionItem = {
+  key: string;
+  label?: string;
+  displayName?: string;
+  usage?: SessionUsage;
+  totalTokens?: number;
+  contextTokens?: number;
+  [key: string]: unknown;
+};
+
+type ModelItem = {
+  id: string;
+  name?: string;
+  provider?: string;
+  config_key?: string;
+  owned_by?: string;
+  contextWindow?: number;
+  [key: string]: unknown;
+};
+
+type ConfigData = {
+  agents?: {
+    defaults?: {
+      model?: string | { primary?: string };
+      contextTokens?: number;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type SessionListResponse = { sessions?: SessionItem[] };
+type ModelsListResponse = { models?: ModelItem[] };
+type ConfigGetResponse = { config?: ConfigData } & ConfigData;
+type SessionsUsageResponse = { sessions?: Array<{ key: string; usage?: SessionUsage }> };
+type ChatHistoryResponse = { messages?: ChatMessage[] };
+type ChatSendResponse = { runId?: string };
+type AgentItem = { id: string; name?: string; [key: string]: unknown };
+
+type ChatEventPayload = {
+  state?: string;
+  message?: ChatMessage;
+  sessionKey?: string;
+  errorMessage?: string;
+  usage?: SessionUsage;
+};
+
+const SLASH_COMMANDS: SlashCommand[] = [
   { name: "new", label: "新建会话", description: "开启一个全新的对话上下文", category: "session", icon: Plus },
   { name: "reset", label: "重置会话", description: "重置当前会话的上下文", category: "session", icon: RotateCcw },
   { name: "compact", label: "压缩上下文", description: "压缩当前对话的上下文以节省 Token", category: "session", icon: Box },
@@ -57,13 +162,6 @@ const SLASH_COMMANDS = [
   { name: "skill", label: "运行技能", description: "直接调用特定的插件技能", args: "<name>", category: "agents", icon: Zap },
 ];
 
-const CATEGORY_LABELS: any = {
-    session: "会话控制",
-    model: "模型设置",
-    tools: "工具与状态",
-    agents: "多智能体"
-};
-
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -84,7 +182,7 @@ const MemoizedMarkdown = memo(({ text }: { text: string }) => (
 MemoizedMarkdown.displayName = "MemoizedMarkdown";
 
 const markdownComponents = {
-    code({ node, inline, className, children, ...props }: any) {
+    code({ inline, className, children, ...props }: MarkdownNodeProps<"code">) {
         const match = /language-(\w+)/.exec(className || "");
         return !inline && match ? (
             <SyntaxHighlighter
@@ -102,22 +200,22 @@ const markdownComponents = {
             </code>
         );
     },
-    p: ({ children }: any) => <p className="leading-relaxed mb-3 last:mb-0 break-words overflow-wrap-break-word">{children}</p>,
-    ul: ({ children }: any) => <ul className="list-disc pl-5 mb-4 space-y-1 break-words">{children}</ul>,
-    ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-4 space-y-1 break-words">{children}</ol>,
-    li: ({ children }: any) => <li className="break-words leading-relaxed">{children}</li>,
-    a: ({ node, ...props }: any) => <a {...props} className="text-primary hover:underline font-bold break-all overflow-wrap-break-word" target="_blank" rel="noopener noreferrer" />,
-    h1: ({ children }: any) => <h1 className="text-xl font-black mt-6 mb-4 break-words">{children}</h1>,
-    h2: ({ children }: any) => <h2 className="text-lg font-black mt-5 mb-3 break-words">{children}</h2>,
-    h3: ({ children }: any) => <h3 className="text-base font-black mt-4 mb-2 break-words">{children}</h3>,
-    table: ({ children }: any) => <table className="min-w-full divide-y divide-border overflow-auto my-4 text-xs block">{children}</table>,
-    thead: ({ children }: any) => <thead className="bg-muted/50">{children}</thead>,
-    tbody: ({ children }: any) => <tbody className="divide-y divide-border">{children}</tbody>,
-    tr: ({ children }: any) => <tr className="hover:bg-muted/30 transition-colors">{children}</tr>,
-    th: ({ children }: any) => <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">{children}</th>,
-    td: ({ children }: any) => <td className="px-3 py-2 whitespace-nowrap">{children}</td>,
-    strong: ({ children }: any) => <strong className="font-bold break-words">{children}</strong>,
-    em: ({ children }: any) => <em className="italic break-words">{children}</em>,
+    p: ({ children }: MarkdownNodeProps<"p">) => <p className="leading-relaxed mb-3 last:mb-0 break-words overflow-wrap-break-word">{children}</p>,
+    ul: ({ children }: MarkdownNodeProps<"ul">) => <ul className="list-disc pl-5 mb-4 space-y-1 break-words">{children}</ul>,
+    ol: ({ children }: MarkdownNodeProps<"ol">) => <ol className="list-decimal pl-5 mb-4 space-y-1 break-words">{children}</ol>,
+    li: ({ children }: MarkdownNodeProps<"li">) => <li className="break-words leading-relaxed">{children}</li>,
+    a: ({ ...props }: MarkdownNodeProps<"a">) => <a {...props} className="text-primary hover:underline font-bold break-all overflow-wrap-break-word" target="_blank" rel="noopener noreferrer" />,
+    h1: ({ children }: MarkdownNodeProps<"h1">) => <h1 className="text-xl font-black mt-6 mb-4 break-words">{children}</h1>,
+    h2: ({ children }: MarkdownNodeProps<"h2">) => <h2 className="text-lg font-black mt-5 mb-3 break-words">{children}</h2>,
+    h3: ({ children }: MarkdownNodeProps<"h3">) => <h3 className="text-base font-black mt-4 mb-2 break-words">{children}</h3>,
+    table: ({ children }: MarkdownNodeProps<"table">) => <table className="min-w-full divide-y divide-border overflow-auto my-4 text-xs block">{children}</table>,
+    thead: ({ children }: MarkdownNodeProps<"thead">) => <thead className="bg-muted/50">{children}</thead>,
+    tbody: ({ children }: MarkdownNodeProps<"tbody">) => <tbody className="divide-y divide-border">{children}</tbody>,
+    tr: ({ children }: MarkdownNodeProps<"tr">) => <tr className="hover:bg-muted/30 transition-colors">{children}</tr>,
+    th: ({ children }: MarkdownNodeProps<"th">) => <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">{children}</th>,
+    td: ({ children }: MarkdownNodeProps<"td">) => <td className="px-3 py-2 whitespace-nowrap">{children}</td>,
+    strong: ({ children }: MarkdownNodeProps<"strong">) => <strong className="font-bold break-words">{children}</strong>,
+    em: ({ children }: MarkdownNodeProps<"em">) => <em className="italic break-words">{children}</em>,
 };
 
 function createPendingAttachment(file: File, extra?: { durationMs?: number }) {
@@ -136,7 +234,7 @@ function createPendingAttachment(file: File, extra?: { durationMs?: number }) {
   } satisfies PendingAttachment;
 }
 
-function getMessageAttachments(message: any): ChatAttachment[] {
+function getMessageAttachments(message?: ChatMessage | null): ChatAttachment[] {
   if (Array.isArray(message?.attachments)) return message.attachments;
   if (Array.isArray(message?.files)) return message.files;
   return [];
@@ -148,6 +246,14 @@ function inferAttachmentKindFromUrl(url: string): ChatAttachment["kind"] {
   if (/\.(mp3|wav|ogg|m4a|aac|flac|webm|opus)$/.test(normalized)) return "audio";
   if (/\.(mp4|mov|m4v|webm|ogv|mkv|avi)$/.test(normalized)) return "video";
   return "file";
+}
+
+function isSupportedFileAttachmentUrl(url: string) {
+  const normalized = url.toLowerCase().split(/[?#]/)[0];
+  return (
+    /\/api\/chat\/attachments\//i.test(url) ||
+    /\.(pdf|txt|md|json|csv|zip|7z|rar|doc|docx|xls|xlsx|ppt|pptx)$/i.test(normalized)
+  );
 }
 
 function extractFallbackAttachments(text: string): ChatAttachment[] {
@@ -162,7 +268,7 @@ function extractFallbackAttachments(text: string): ChatAttachment[] {
     if (!url || seen.has(url)) return [];
 
     const kind = inferAttachmentKindFromUrl(url);
-    if (kind === "file" && !/\/api\/chat\/attachments\//i.test(url)) return [];
+    if (kind === "file" && !isSupportedFileAttachmentUrl(url)) return [];
 
     seen.add(url);
     const pathSegment = url.split("/").pop() || `attachment-${index + 1}`;
@@ -193,7 +299,7 @@ function stripFallbackAttachmentLinks(text: string, attachments: ChatAttachment[
   return filteredLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function extractFallbackAttachmentsFromContent(content: any, message: any): ChatAttachment[] {
+function extractFallbackAttachmentsFromContent(content: ChatMessage["content"], message?: ChatMessage | null): ChatAttachment[] {
   const seen = new Map<string, ChatAttachment>();
 
   const addFromText = (text: unknown) => {
@@ -301,11 +407,11 @@ export default function ChatPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState<any | null>(null);
-  const [streamingMessages, setStreamingMessages] = useState<any[]>([]);
+  const [streamingMessage, setStreamingMessage] = useState<ChatMessage | null>(null);
+  const [streamingMessages, setStreamingMessages] = useState<ChatMessage[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
   
   const [activeSession, setActiveSession] = useState("main");
@@ -333,21 +439,18 @@ export default function ChatPage() {
     localStorage.setItem("openclaw.control.settings.v1", JSON.stringify(settings));
   }, [showDetails]);
   
-  const [isCommandsOpen, setIsCommandsOpen] = useState(false);
   const [isUsageDropdownOpen, setIsUsageDropdownOpen] = useState(false);
   const [usageLoading, setUsageLoading] = useState(false);
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<ConfigData | null>(null);
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarContent, setSidebarContent] = useState<string | null>(null);
-  const [sessionUsage, setSessionUsage] = useState<any>(null);
+  const [sessionUsage, setSessionUsage] = useState<SessionUsage | null>(null);
   
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [showSessionMenu, setShowSessionMenu] = useState(false);
-  const [models, setModels] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [showModelMenu, setShowModelMenu] = useState(false);
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents] = useState<AgentItem[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -367,7 +470,7 @@ export default function ChatPage() {
   const fetchSessions = useCallback(async () => {
     if (!client || !connected) return;
     try {
-      const res: any = await client.request("sessions.list", { limit: 50, includeGlobal: true, includeUnknown: true });
+      const res = await client.request<SessionListResponse>("sessions.list", { limit: 50, includeGlobal: true, includeUnknown: true });
       setSessions(res.sessions || []);
     } catch (e) {
       console.error("Failed to load sessions", e);
@@ -377,7 +480,7 @@ export default function ChatPage() {
   const fetchModels = useCallback(async () => {
     if (!client || !connected) return;
     try {
-      const res: any = await client.request("models.list", {});
+      const res = await client.request<ModelsListResponse>("models.list", {});
       setModels(res.models || []);
     } catch (e) {
       console.error("Failed to load models", e);
@@ -387,7 +490,7 @@ export default function ChatPage() {
   const fetchConfig = useCallback(async () => {
     if (!client || !connected) return;
     try {
-      const res: any = await client.request("config.get", {});
+      const res = await client.request<ConfigGetResponse>("config.get", {});
       if (res) {
           const actualConfig = res.config || res;
           setConfig(actualConfig);
@@ -404,11 +507,11 @@ export default function ChatPage() {
     if (!client || !connected) return;
     setUsageLoading(true);
     try {
-      const res: any = await client.request("sessions.usage", { limit: 100 }, 60000);
+      const res = await client.request<SessionsUsageResponse>("sessions.usage", { limit: 100 }, 60000);
       if (res.sessions && Array.isArray(res.sessions)) {
         setSessions(prev => {
             const next = [...prev];
-            res.sessions.forEach((u: any) => {
+            res.sessions.forEach((u) => {
                 const idx = next.findIndex(s => s.key === u.key);
                 if (idx !== -1) next[idx] = { ...next[idx], usage: u.usage };
             });
@@ -425,13 +528,13 @@ export default function ChatPage() {
   const fetchHistory = useCallback(async (key: string) => {
     if (!client || !connected) return;
     try {
-      const res: any = await client.request("chat.history", { sessionKey: key, limit: 100 });
+      const res = await client.request<ChatHistoryResponse>("chat.history", { sessionKey: key, limit: 100 });
       setMessages(res.messages || []);
       setIsTyping(false);
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'auto' });
       }, 100);
-    } catch (e) {
+    } catch {
       toast({ title: "加载历史失败", description: "无法同步漫游记录", variant: "destructive" });
     }
   }, [client, connected, toast]);
@@ -458,12 +561,6 @@ export default function ChatPage() {
   }, [connected, client, activeSession, fetchConfig, fetchSessions, fetchModels, fetchHistory]);
 
   useEffect(() => {
-    if (showModelMenu) {
-      fetchModels();
-    }
-  }, [showModelMenu, connected, client]);
-
-  useEffect(() => {
     return () => {
       mediaRecorderRef.current?.stop?.();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -474,7 +571,7 @@ export default function ChatPage() {
     if (isUsageDropdownOpen) {
       fetchUsage();
     }
-  }, [isUsageDropdownOpen, connected, client]);
+  }, [isUsageDropdownOpen, fetchUsage]);
 
   // Use a ref to always get the latest toast function without causing effect re-runs
   const toastRef = useRef(toast);
@@ -487,10 +584,11 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!client) return;
-    const handleEvent = (evt: any) => {
+    const handleEvent = (evt: GatewayEventFrame) => {
+      const payload = (evt.payload ?? {}) as ChatEventPayload;
       console.log("[streaming] handleEvent called, event:", evt.event, "payload.state:", evt.payload?.state);
       if (evt.event === "chat") {
-        const { state, message, sessionKey, errorMessage } = evt.payload;
+        const { state, message, sessionKey, errorMessage } = payload;
         console.log("[streaming] chat event, state:", state, "message keys:", message ? Object.keys(message) : null);
 
         // Flexible session key check
@@ -510,7 +608,7 @@ export default function ChatPage() {
             if (Array.isArray(content)) {
               console.log("[streaming] content is array, length:", content.length);
               // 为每个 content part 创建独立的 message 对象
-              const newStreamingMessages = content.map((part: any, idx: number) => ({
+              const newStreamingMessages: ChatMessage[] = content.map((part, idx) => ({
                 id: `streaming-${Date.now()}-${idx}`,
                 role: part.toolCallId || part.tool_call_id ? 'tool' : 'assistant',
                 // MessageItem 期望 content 是数组，所以把 part 包装成数组
@@ -538,8 +636,8 @@ export default function ChatPage() {
             }
             setStreamingMessage(message);
             setIsTyping(true);
-            if (evt.payload.usage) {
-                const usage = evt.payload.usage;
+            if (payload.usage) {
+                const usage = payload.usage;
                 setSessionUsage(usage);
                 setSessions(prev => prev.map(s => s.key === sessionKey ? { ...s, usage } : s));
             }
@@ -555,8 +653,8 @@ export default function ChatPage() {
             setStreamingMessage(null);
             setStreamingMessages([]);
             setIsTyping(false);
-            if (evt.payload.usage) {
-                const usage = evt.payload.usage;
+            if (payload.usage) {
+                const usage = payload.usage;
                 setSessionUsage(usage);
                 setSessions(prev => prev.map(s => s.key === sessionKey ? { ...s, usage } : s));
             }
@@ -574,7 +672,7 @@ export default function ChatPage() {
         }
       }
     };
-    (client as any).opts.onEvent = handleEvent;
+    client.opts.onEvent = handleEvent;
   }, [client, activeSession, fetchHistory, fetchSessions]);
 
   useEffect(() => {
@@ -680,24 +778,24 @@ export default function ChatPage() {
           return;
         }
         try {
-          const res: any = await client.request("chat.history", { sessionKey: activeSession, limit: 20 });
+          const res = await client.request<ChatHistoryResponse>("chat.history", { sessionKey: activeSession, limit: 20 });
           const msgs = res.messages || [];
           
-          console.log("[Chat] History msgs:", msgs.map((m: any) => ({
+          console.log("[Chat] History msgs:", msgs.map((m) => ({
             role: m.role,
             runId: m.runId,
-            contentType: Array.isArray(m.content) ? m.content.map((c: any) => c.type) : typeof m.content
+            contentType: Array.isArray(m.content) ? m.content.map((c) => c.type) : typeof m.content
           })));
           
           // Find the user message index to know where streaming starts
-          const userMsgIdx = [...msgs].reverse().findIndex((m: any) => m.role === "user");
+          const userMsgIdx = [...msgs].reverse().findIndex((m) => m.role === "user");
           let streamingStartIdx = 0;
           if (userMsgIdx >= 0) {
             streamingStartIdx = msgs.length - 1 - userMsgIdx + 1; // +1 to skip the user message itself
           }
           
           // Get all messages that come after the user's message (these are streaming)
-          const streamingMsgs = msgs.slice(streamingStartIdx).map((m: any, idx: number) => ({
+          const streamingMsgs: ChatMessage[] = msgs.slice(streamingStartIdx).map((m, idx) => ({
             id: `streaming-${Date.now()}-${idx}`,
             role: m.role,
             content: Array.isArray(m.content) ? m.content : [m.content],
@@ -710,7 +808,7 @@ export default function ChatPage() {
           }));
           
           if (streamingMsgs.length > 0) {
-            console.log("[Chat] Streaming update, messages count:", streamingMsgs.length, "roles:", streamingMsgs.map((m: any) => m.role));
+            console.log("[Chat] Streaming update, messages count:", streamingMsgs.length, "roles:", streamingMsgs.map((m) => m.role));
             setStreamingMessages(streamingMsgs);
             setStreamingMessage(streamingMsgs[streamingMsgs.length - 1]); // Keep last for compatibility
             setIsTyping(true);
@@ -743,7 +841,7 @@ export default function ChatPage() {
         // Start polling immediately when sending
         startPolling();
 
-        const sendRes: any = await client.request("chat.send", {
+        const sendRes = await client.request<ChatSendResponse>("chat.send", {
             sessionKey: activeSession,
             message: finalMessage,
             idempotencyKey: messageId,
@@ -756,11 +854,11 @@ export default function ChatPage() {
         }
         // Note: We don't stop polling here because the response might still be generating
         // The onEvent handler will stop it when we get "final" or "after-final"
-    } catch (e: any) {
+    } catch (e: unknown) {
         stopPolling();
         setIsTyping(false);
         setStreamingMessage(null);
-        toastRef.current({ title: "发送失败", description: e.message, variant: "destructive" });
+        toastRef.current({ title: "发送失败", description: e instanceof Error ? e.message : "消息发送失败", variant: "destructive" });
     } finally {
         attachmentsToUpload.forEach((attachment) => {
           if (attachment.previewUrl) {
@@ -783,7 +881,6 @@ export default function ChatPage() {
     setMessages([]);
     currentRunIdRef.current = "";
     fetchHistory(key);
-    setShowSessionMenu(false);
   };
 
   const handleNewSession = () => {
@@ -891,8 +988,7 @@ export default function ChatPage() {
     return { label, displayName: label };
   }, [sessions, activeSession]);
 
-  const handleCommandClick = (cmd: any) => {
-    setIsCommandsOpen(false);
+  const handleCommandClick = (cmd: SlashCommand) => {
     if (cmd.args) {
       setInputText(`/${cmd.name} `);
       // Give it a tiny timeout to ensure the modal closes and focus works
@@ -916,67 +1012,12 @@ export default function ChatPage() {
           sessionKey: activeSession, 
           message: cmdText, 
           idempotencyKey: userMessage.id
-      }).catch(e => {
+      }).catch((e: unknown) => {
           setIsTyping(false);
-          toast({ title: "命令执行失败", description: e.message, variant: "destructive" });
+          toast({ title: "命令执行失败", description: e instanceof Error ? e.message : "命令执行失败", variant: "destructive" });
       });
     }
   };
-
-  const renderCommandsModal = () => (
-    <Dialog open={isCommandsOpen} onOpenChange={setIsCommandsOpen}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
-        <DialogHeader className="p-6 pb-2 border-b">
-          <DialogTitle className="flex items-center gap-3 text-xl">
-            <SquareTerminal className="size-6 text-orange-500" /> 快捷命令控制台
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground opacity-50 mt-1 uppercase tracking-widest font-black">OpenClaw Mesh Command Center</p>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-          {Object.keys(CATEGORY_LABELS).map(cat => {
-              const catCmds = SLASH_COMMANDS.filter(c => c.category === cat);
-              if (catCmds.length === 0) return null;
-              return (
-                  <div key={cat} className="space-y-4">
-                      <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 whitespace-nowrap">{CATEGORY_LABELS[cat]}</span>
-                          <div className="h-px w-full bg-gradient-to-r from-muted-foreground/10 to-transparent" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {catCmds.map(cmd => (
-                            <button 
-                                key={cmd.name}
-                                onClick={() => handleCommandClick(cmd)}
-                                className="flex items-start gap-4 p-4 rounded-[1.2rem] bg-muted/20 border border-border/40 hover:bg-primary/5 hover:border-primary/20 transition-all group text-left relative overflow-hidden active:scale-95"
-                            >
-                                <div className="size-10 rounded-xl bg-background border border-border/50 flex items-center justify-center shrink-0 group-hover:text-primary transition-colors">
-                                    <cmd.icon className="size-5 stroke-[1.5]" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-bold tracking-tight">/{cmd.name}</p>
-                                        <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground opacity-30">{cmd.label}</p>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 line-clamp-2 opacity-60 group-hover:opacity-100 transition-opacity">{cmd.description}</p>
-                                </div>
-                                {cmd.args && (
-                                    <div className="absolute right-3 top-3">
-                                        <div className="px-1.5 py-0.5 rounded-md bg-orange-500/10 text-orange-600 text-[8px] font-black uppercase tracking-widest">Args</div>
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                      </div>
-                  </div>
-              )
-          })}
-        </div>
-        <div className="p-4 bg-muted/20 border-t text-center">
-            <p className="text-[10px] text-muted-foreground/40 font-medium">点击命令可直接执行或快速填入参数</p>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
 
   return (
     <div className="flex h-full bg-muted/5 overflow-hidden">
@@ -1133,9 +1174,9 @@ export default function ChatPage() {
                                                           sessionKey: activeSession,
                                                           message: cmdText,
                                                           idempotencyKey: userMessage.id
-                                                      }).catch(e => {
+                                                      }).catch((e: unknown) => {
                                                           setIsTyping(false);
-                                                          toast({ title: "命令执行失败", description: e.message, variant: "destructive" });
+                                                          toast({ title: "命令执行失败", description: e instanceof Error ? e.message : "命令执行失败", variant: "destructive" });
                                                       });
                                                     }}
                                                     className={cn(
@@ -1345,7 +1386,7 @@ export default function ChatPage() {
                                 <div key={attachment.localId} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-3 py-1.5 group/file max-w-full">
                                     {attachment.kind === "image" ? <ImageIcon className="size-3 text-primary" /> : attachment.kind === "audio" ? <Music4 className="size-3 text-primary" /> : attachment.kind === "video" ? <Film className="size-3 text-primary" /> : <FileText className="size-3 text-primary" />}
                                     {attachment.previewUrl && attachment.kind === "image" ? (
-                            <img src={attachment.previewUrl} alt={attachment.name} className="size-8 rounded-lg object-cover border border-primary/20" />
+                            <Image src={attachment.previewUrl} alt={attachment.name} width={32} height={32} unoptimized className="size-8 rounded-lg object-cover border border-primary/20" />
                                     ) : attachment.previewUrl && attachment.kind === "video" ? (
                             <video src={attachment.previewUrl} className="size-8 rounded-lg object-cover border border-primary/20" muted playsInline />
                                     ) : null}
@@ -1457,7 +1498,18 @@ export default function ChatPage() {
 );
 }
 
-const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, message, agents, showDetails }: any) => {
+type MessageItemProps = {
+  role?: string;
+  content?: ChatMessage["content"];
+  sender?: string;
+  isStreaming: boolean;
+  onOpenSidebar?: (content: string) => void;
+  message?: ChatMessage;
+  agents?: AgentItem[];
+  showDetails: boolean;
+};
+
+const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, message, agents, showDetails }: MessageItemProps) => {
   const isUser = role === "user";
   const { profile } = useProfile();
   const attachments = getMessageAttachments(message);
@@ -1467,14 +1519,13 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   }, [attachments.length, content, message]);
   const displayAttachments = attachments.length > 0 ? attachments : fallbackAttachments;
 
-  const agentName = useMemo(() => {
-    if (!message?.agentId) return null;
-    const a = agents?.find((agent: any) => agent.id === message.agentId);
-    return a?.name || a?.id;
-  }, [agents, message?.agentId]);
+  const matchedAgent = message?.agentId
+    ? agents?.find((agent) => agent.id === message.agentId)
+    : undefined;
+  const agentName = matchedAgent?.name || matchedAgent?.id || null;
   
   const parts = useMemo(() => {
-    let initialParts: any[] = [];
+    let initialParts: ChatContentPart[] = [];
     if (Array.isArray(content)) initialParts = content;
     else if (typeof content === 'string' && content.trim()) initialParts = [{ type: 'text', text: content }];
     else if (message?.text) initialParts = [{ type: 'text', text: message.text }];
@@ -1483,9 +1534,9 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     else if (message?.toolCallId || message?.tool_call_id) initialParts = [{ type: 'tool_result', ...message }];
     
     // Extract <think> blocks from text parts
-    const finalParts: any[] = [];
+    const finalParts: ChatContentPart[] = [];
     initialParts.forEach(p => {
-        const text = p.text || (typeof p === 'string' ? p : null);
+        const text = p.text ?? null;
         if (text && (p.type === 'text' || !p.type)) {
             let lastIndex = 0;
             const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/g;
@@ -1508,7 +1559,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     return finalParts;
   }, [content, message]);
 
-  const renderPart = (part: any, index: number) => {
+  const renderPart = (part: ChatContentPart | string, index: number) => {
     if (typeof part === "string") {
       const text = fallbackAttachments.length > 0 ? stripFallbackAttachmentLinks(part, fallbackAttachments) : part;
       if (!text || !text.trim()) return null;
@@ -1702,7 +1753,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
     );
   };
 
-  const displaySender = sender || message?.sender || (isUser ? "You" : (role === "tool" ? "Tool" : "Assistant"));
+  const displaySender = sender || agentName || message?.sender || (isUser ? "You" : (role === "tool" ? "Tool" : "Assistant"));
   const rawTs = message?.createdAt || message?.timestamp || message?.ts;
   const timestamp = rawTs ? new Date(rawTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
   const fromId = message?.from;
@@ -1712,7 +1763,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
   return (
     <div className={cn("flex gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-400 ease-out mb-4 sm:mb-6", isUser ? "flex-row-reverse" : "max-w-4xl")}>
       <div className={cn("size-7 sm:size-9 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 border overflow-hidden shadow-sm transition-transform hover:scale-105 mt-1 sm:mt-0", isUser ? "bg-indigo-50 border-indigo-100 text-indigo-600" : "bg-background border-border")}>
-        {isUser ? (profile.avatar ? <img src={profile.avatar} className="w-full h-full object-cover" /> : <User className="size-4 sm:size-5" />) : <Bot className="size-4 sm:size-5 text-primary" />}
+        {isUser ? (profile.avatar ? <Image src={profile.avatar} alt={displaySender || "用户头像"} width={36} height={36} unoptimized className="w-full h-full object-cover" /> : <User className="size-4 sm:size-5" />) : <Bot className="size-4 sm:size-5 text-primary" />}
       </div>
       <div className={cn("flex-1 min-w-0 flex flex-col", isUser ? "items-end" : "items-start")}>
         <div className={cn("mb-1 sm:mb-2 px-1 sm:px-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] text-muted-foreground/40 font-bold uppercase", isUser ? "flex-row-reverse" : "flex-row")}>
@@ -1745,6 +1796,7 @@ const MessageItem = memo(({ role, content, sender, isStreaming, onOpenSidebar, m
                       <div key={attachment.id} className="rounded-2xl border border-border/50 bg-muted/20 p-3">
                         {attachment.kind === "image" ? (
                           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={attachment.url} alt={attachment.name} className="max-h-64 w-auto rounded-xl border border-border/50 object-cover" />
                           </a>
                         ) : attachment.kind === "audio" ? (

@@ -2,6 +2,13 @@ node_modules
 .next
 .git
 .gitignore
+android/.gradle
+android/**/build
+android/app/src/main/assets
+ios/**/DerivedData
+ios/**/public
+community-api/node_modules
+community-api/data/attachments
 .env
 .env.local
 .env.development.local

@@ -23,7 +23,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = join(__dirname, "..", "data", "attachments");
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_PREFIXES = ["image/", "audio/"];
+const ALLOWED_PREFIXES = ["image/", "audio/", "video/"];
 const ALLOWED_EXACT_TYPES = new Set([
   "application/pdf",
   "text/plain",
@@ -47,6 +47,7 @@ function sanitizeFileName(fileName) {
 function detectKind(mimeType) {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
   return "file";
 }
 

@@ -1,124 +1,255 @@
-# Android APK 构建指南
+# Android APK 构建与发布指南
 
-本文档说明如何将 OpenClaw New UI 打包成 Android APK。
+本文档说明当前项目如何构建 Android APK，以及 Web / APK 两种输出模式如何共存。
 
-## 前置要求
+---
 
-- Node.js 18+
-- npm 或 yarn
-- Android Studio（用于编译 APK）
+## 一、当前构建策略
+
+项目现在采用以下统一策略：
+
+- `package.json` 的 `version` 是**单一版本源**
+- `next.config.ts` 通过环境变量切换输出模式
+  - 默认：`standalone`，用于 Web / Docker
+  - APK 构建：`export`，用于 Capacitor
+- Android `versionName` 自动读取 `package.json` 中的版本号
+- GitHub Actions 在打 tag 时自动构建 APK
+
+也就是说：
+
+- **Web 本地开发 / Docker** 不需要改 `next.config.ts`
+- **APK 构建** 也不需要手工改 `next.config.ts`
+
+---
+
+## 二、前置要求
+
+- Node.js 20+
+- npm
+- Android Studio
 - Android SDK
 
-## 构建步骤
+---
 
-### 1. 安装 Capacitor 依赖
+## 三、本地构建 APK
 
-```bash
-npm install @capacitor/core @capacitor/cli @capacitor/android
-```
-
-### 2. 初始化 Capacitor
+### 1. 安装依赖
 
 ```bash
-npx cap init "OpenClaw" "com.openclaw.app" --web-dir=out
+npm install
 ```
 
-参数说明：
-- `OpenClaw` - 应用名称
-- `com.openclaw.app` - 应用包名
-- `web-dir=out` - Web 构建产物目录
-
-### 3. 修改 Next.js 配置（仅用于 Android 构建）
-
-编辑 `next.config.ts`，将 `output` 从 `standalone` 改为 `export`：
-
-```typescript
-const nextConfig: NextConfig = {
-  output: 'export',  // 改为 static export，适用于 APK
-  // ...
-};
-```
-
-### 4. 构建 Web 项目
+### 2. 以静态导出模式构建 Web 资源
 
 ```bash
+NEXT_OUTPUT_MODE=export npm run build
+```
+
+Windows PowerShell:
+
+```powershell
+$env:NEXT_OUTPUT_MODE='export'
 npm run build
+Remove-Item Env:NEXT_OUTPUT_MODE
 ```
 
-构建产物会在 `out/` 目录。
+构建完成后会生成：
 
-### 5. 添加 Android 平台
-
-```bash
-npx cap add android
+```text
+out/
 ```
 
-### 6. 同步 Web 资源到 Android
+### 3. 同步到 Android 工程
 
 ```bash
 npx cap sync android
 ```
 
-### 7. 用 Android Studio 编译 APK
-
-1. 用 Android Studio 打开 `android` 文件夹
-2. 等待 Gradle 同步完成
-3. 点击 Build → Build Bundle(s) / APK(s) → Build APK(s)
-
-APK 输出位置：`android\app\build\outputs\apk\debug\app-debug.apk`
-
-## 恢复为 Web 开发模式
-
-如果需要恢复为正常的 Web 开发：
-
-### 1. 修改回 standalone 模式
-
-编辑 `next.config.ts`：
-
-```typescript
-const nextConfig: NextConfig = {
-  output: 'standalone',  // 改回 standalone
-  // ...
-};
-```
-
-### 2. 启动开发服务器
+### 4. 构建 APK
 
 ```bash
-npm run dev
+cd android
+./gradlew assembleDebug
 ```
 
-## 可选：卸载 Android 相关（不需要时）
+Windows:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+```
+
+### 5. APK 输出位置
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
+## 四、Web / Docker 构建方式
+
+项目默认输出模式就是 Web 所需的 `standalone`，因此直接构建即可：
 
 ```bash
-# 删除 Android 项目目录
-rm -rf android
-
-# 删除 Capacitor 配置
-rm capacitor.config.ts
-
-# 卸载 Capacitor 包
-npm uninstall @capacitor/core @capacitor/cli @capacitor/android
+npm run build
 ```
 
-## 注意事项
+或使用 Docker：
 
-1. **Web 开发和 Android 构建可以并存** - 只需要在构建 Android 时修改 `output: 'export'`
+```bash
+docker build -t openclaw-new-ui .
+docker run -d --name openclaw-new-ui -p 3000:3000 openclaw-new-ui
+```
 
-2. **Web 资源位置** - Capacitor 会将 `out/` 目录下的静态文件复制到 `android\app\src\main\assets\public`
+---
 
-3. **更新后同步** - 修改 Web 代码后需要重新 `npm run build` + `npx cap sync android`
+## 五、自动构建 APK（GitHub Actions）
 
-4. **Gradle 下载问题** - 如果 Gradle 下载超时，可以：
-   - 使用 VPN
-   - 配置国内镜像：`gradle-wrapper.properties` 中添加 `distributionUrl=https://mirrors.cloud.tencent.com/gradle/gradle-8.14.3-all.zip`
-   - 手动下载 Gradle 放到 `~/.gradle/wrapper/dists/` 目录
+仓库已配置自动工作流：
 
-## 文件变更记录
+- 工作流文件：`.github/workflows/release.yml`
+- 触发方式：
+  - push tag
+  - 手动 `workflow_dispatch`
 
-| 文件/目录 | 变更类型 | 说明 |
-|---------|---------|------|
-| `next.config.ts` | 修改 | output: 'export' 用于静态导出 |
-| `capacitor.config.ts` | 新增 | Capacitor 配置文件 |
-| `android/` | 新增 | Android 原生项目 |
-| `@capacitor/*` | npm 包新增 | Capacitor 运行时依赖 |
+GitHub Actions 在构建 APK 时会自动设置：
+
+```text
+NEXT_OUTPUT_MODE=export
+```
+
+因此不需要人工切换 Next.js 输出模式。
+
+---
+
+## 六、版本策略
+
+当前统一规则如下：
+
+### 1. 单一版本源
+
+版本号以 `package.json` 为准，例如：
+
+```json
+"version": "2026.4.3"
+```
+
+### 2. Android 版本
+
+`android/app/build.gradle` 中的 `versionName` 自动读取 `package.json`，不再手工维护。
+
+### 3. Release Tag 规则
+
+发布 tag 必须与 `package.json` 版本一致，格式如下：
+
+```text
+v2026.4.3
+```
+
+也就是：
+
+```text
+tag = v + package.json.version
+```
+
+### 4. App 更新检测
+
+客户端更新检测会从 GitHub Release 的 tag 中提取版本号，因此 Release tag 必须使用标准三段版本格式：
+
+```text
+v主版本.次版本.修订号
+```
+
+例如：
+
+```text
+v2026.4.3
+```
+
+---
+
+## 七、推荐发版流程
+
+### 1. 修改版本号
+
+先更新 `package.json` 的版本，例如：
+
+```json
+"version": "2026.4.4"
+```
+
+### 2. 提交代码
+
+```bash
+git add -A
+git commit -m "chore: release 2026.4.4"
+git push origin master
+```
+
+### 3. 打 tag 触发 APK 构建
+
+```bash
+git tag v2026.4.4
+git push origin v2026.4.4
+```
+
+构建成功后，GitHub Release 会自动附带 APK 文件。
+
+---
+
+## 八、常见问题
+
+### 1. 为什么不能手工改 `next.config.ts` 了？
+
+可以改，但不推荐。  
+现在已经支持通过环境变量切换：
+
+- `NEXT_OUTPUT_MODE=standalone`
+- `NEXT_OUTPUT_MODE=export`
+
+直接改文件容易造成 Web / APK 构建互相影响。
+
+### 2. 为什么要统一版本源？
+
+因为此前存在：
+
+- Web 版本号
+- Android 版本号
+- Git tag
+
+三者不一致的问题，会导致：
+
+- 更新判断错误
+- UI 显示版本不一致
+- 发布记录混乱
+
+现在统一后：
+
+- 页面显示版本
+- Android 版本名
+- GitHub Release tag
+
+都应保持一致。
+
+### 3. Gradle 下载很慢怎么办？
+
+可以：
+
+- 使用代理
+- 配置镜像
+- 预先下载 Gradle 依赖
+
+---
+
+## 九、当前结论
+
+当前项目已经支持：
+
+- **Web / Docker：默认 `standalone`**
+- **APK 构建：`NEXT_OUTPUT_MODE=export`**
+- **GitHub Actions：自动打包 APK**
+- **版本号：以 `package.json` 为准**
+
+以后不要再通过手工来回修改 `next.config.ts` 进行切换。
+

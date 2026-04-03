@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface PupilProps {
   size?: number;
@@ -19,6 +19,7 @@ export const Pupil = ({
 }: PupilProps) => {
   const [mouseX, setMouseX] = useState<number>(0);
   const [mouseY, setMouseY] = useState<number>(0);
+  const [pupilPosition, setPupilPosition] = useState({ x: 0, y: 0 });
   const pupilRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,12 +35,21 @@ export const Pupil = ({
     };
   }, []);
 
-  const calculatePupilPosition = () => {
-    if (!pupilRef.current) return { x: 0, y: 0 };
+  useEffect(() => {
+    let frame = 0;
 
-    // If forced look direction is provided, use that instead of mouse tracking
     if (forceLookX !== undefined && forceLookY !== undefined) {
-      return { x: forceLookX, y: forceLookY };
+      frame = requestAnimationFrame(() => {
+        setPupilPosition({ x: forceLookX, y: forceLookY });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (!pupilRef.current) {
+      frame = requestAnimationFrame(() => {
+        setPupilPosition({ x: 0, y: 0 });
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const pupil = pupilRef.current.getBoundingClientRect();
@@ -54,10 +64,11 @@ export const Pupil = ({
     const x = Math.cos(angle) * distance;
     const y = Math.sin(angle) * distance;
 
-    return { x, y };
-  };
-
-  const pupilPosition = calculatePupilPosition();
+    frame = requestAnimationFrame(() => {
+      setPupilPosition({ x, y });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [forceLookX, forceLookY, maxDistance, mouseX, mouseY]);
 
   return (
     <div
@@ -97,6 +108,7 @@ export const EyeBall = ({
 }: EyeBallProps) => {
   const [mouseX, setMouseX] = useState<number>(0);
   const [mouseY, setMouseY] = useState<number>(0);
+  const [pupilPosition, setPupilPosition] = useState({ x: 0, y: 0 });
   const eyeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,12 +124,21 @@ export const EyeBall = ({
     };
   }, []);
 
-  const calculatePupilPosition = () => {
-    if (!eyeRef.current) return { x: 0, y: 0 };
+  useEffect(() => {
+    let frame = 0;
 
-    // If forced look direction is provided, use that instead of mouse tracking
     if (forceLookX !== undefined && forceLookY !== undefined) {
-      return { x: forceLookX, y: forceLookY };
+      frame = requestAnimationFrame(() => {
+        setPupilPosition({ x: forceLookX, y: forceLookY });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (!eyeRef.current) {
+      frame = requestAnimationFrame(() => {
+        setPupilPosition({ x: 0, y: 0 });
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const eye = eyeRef.current.getBoundingClientRect();
@@ -132,10 +153,11 @@ export const EyeBall = ({
     const x = Math.cos(angle) * distance;
     const y = Math.sin(angle) * distance;
 
-    return { x, y };
-  };
-
-  const pupilPosition = calculatePupilPosition();
+    frame = requestAnimationFrame(() => {
+      setPupilPosition({ x, y });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [forceLookX, forceLookY, maxDistance, mouseX, mouseY]);
 
   return (
     <div
@@ -175,12 +197,18 @@ export function AnimatedCharacters({
   showPassword = false,
   passwordLength = 0,
 }: AnimatedCharactersProps) {
+  type CharacterPose = { faceX: number; faceY: number; bodySkew: number };
+  const defaultPose: CharacterPose = { faceX: 0, faceY: 0, bodySkew: 0 };
   const [mouseX, setMouseX] = useState<number>(0);
   const [mouseY, setMouseY] = useState<number>(0);
   const [isPurpleBlinking, setIsPurpleBlinking] = useState(false);
   const [isBlackBlinking, setIsBlackBlinking] = useState(false);
   const [isLookingAtEachOther, setIsLookingAtEachOther] = useState(false);
   const [isPurplePeeking, setIsPurplePeeking] = useState(false);
+  const [purplePos, setPurplePos] = useState<CharacterPose>(defaultPose);
+  const [blackPos, setBlackPos] = useState<CharacterPose>(defaultPose);
+  const [yellowPos, setYellowPos] = useState<CharacterPose>(defaultPose);
+  const [orangePos, setOrangePos] = useState<CharacterPose>(defaultPose);
   const purpleRef = useRef<HTMLDivElement>(null);
   const blackRef = useRef<HTMLDivElement>(null);
   const yellowRef = useRef<HTMLDivElement>(null);
@@ -238,14 +266,23 @@ export function AnimatedCharacters({
 
   // Looking at each other animation when typing starts
   useEffect(() => {
+    let frame = 0;
     if (isTyping) {
-      setIsLookingAtEachOther(true);
+      frame = requestAnimationFrame(() => {
+        setIsLookingAtEachOther(true);
+      });
       const timer = setTimeout(() => {
         setIsLookingAtEachOther(false);
       }, 800);
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+      };
     } else {
-      setIsLookingAtEachOther(false);
+      frame = requestAnimationFrame(() => {
+        setIsLookingAtEachOther(false);
+      });
+      return () => cancelAnimationFrame(frame);
     }
   }, [isTyping]);
 
@@ -265,14 +302,17 @@ export function AnimatedCharacters({
       const firstPeek = schedulePeek();
       return () => clearTimeout(firstPeek);
     } else {
-      setIsPurplePeeking(false);
+      const frame = requestAnimationFrame(() => {
+        setIsPurplePeeking(false);
+      });
+      return () => cancelAnimationFrame(frame);
     }
   }, [passwordLength, showPassword]);
 
-  const calculatePosition = (ref: React.RefObject<HTMLDivElement | null>) => {
-    if (!ref.current) return { faceX: 0, faceY: 0, bodySkew: 0 };
+  const calculatePosition = useCallback((element: HTMLDivElement | null): CharacterPose => {
+    if (!element) return { faceX: 0, faceY: 0, bodySkew: 0 };
 
-    const rect = ref.current.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 3;
 
@@ -284,12 +324,14 @@ export function AnimatedCharacters({
     const bodySkew = Math.max(-6, Math.min(6, -deltaX / 120));
 
     return { faceX, faceY, bodySkew };
-  };
+  }, [mouseX, mouseY]);
 
-  const purplePos = calculatePosition(purpleRef);
-  const blackPos = calculatePosition(blackRef);
-  const yellowPos = calculatePosition(yellowRef);
-  const orangePos = calculatePosition(orangeRef);
+  useEffect(() => {
+    setPurplePos(calculatePosition(purpleRef.current));
+    setBlackPos(calculatePosition(blackRef.current));
+    setYellowPos(calculatePosition(yellowRef.current));
+    setOrangePos(calculatePosition(orangeRef.current));
+  }, [calculatePosition]);
 
   const isHidingPassword = passwordLength > 0 && !showPassword;
 

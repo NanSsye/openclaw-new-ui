@@ -6,7 +6,7 @@ import {
   History, LayoutDashboard, MessageSquare, Radio,
   Settings, Terminal, Zap, LogOut, ChevronRight,
   Database, Activity, Clock, Bell, Sun, Moon, User, Cpu, Server,
-  PanelLeft, PanelLeftClose, SquareTerminal, RefreshCw, Users
+  PanelLeft, RefreshCw, Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,7 @@ import { AccountSettingsDialog } from "@/components/account-settings-dialog";
 import { AppUpdateDialog } from "@/components/app-update-dialog";
 import { useProfile } from "@/hooks/use-profile";
 import { useAppUpdate } from "@/hooks/use-app-update";
+import Image from "next/image";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -48,13 +49,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  const { state: updateState, checkForUpdate } = useAppUpdate();
+  const { state: updateState } = useAppUpdate();
 
   // Auto-close mobile sidebar when navigating
   useEffect(() => {
-    setMobileSidebarOpen(false);
+    const timer = setTimeout(() => {
+      setMobileSidebarOpen(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [pathname]);
 
   // Lock body scroll when mobile sidebar is open
@@ -71,11 +74,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   // Initial theme check and mount
   useEffect(() => {
-    setMounted(true);
-    const isDark = document.documentElement.classList.contains('dark') ||
-                   (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    setIsDarkMode(isDark);
-    if (isDark) document.documentElement.classList.add('dark');
+    const timer = setTimeout(() => {
+      const isDark = document.documentElement.classList.contains('dark') ||
+                    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(isDark);
+      if (isDark) document.documentElement.classList.add('dark');
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const toggleTheme = () => {
@@ -259,7 +264,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative size-8 rounded-full p-0 flex items-center justify-center bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all shrink-0 overflow-hidden">
                     {profile.avatar ? (
-                      <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      <Image src={profile.avatar} alt="Avatar" fill unoptimized className="object-cover" />
                     ) : (
                       <User className="size-4 text-primary" />
                     )}

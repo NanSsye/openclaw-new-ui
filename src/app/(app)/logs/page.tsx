@@ -1,16 +1,12 @@
 "use client";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useGateway } from "@/context/gateway-context";
 import { useToast } from "@/hooks/use-toast";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { 
-  Terminal, Search, Trash2, Download, RefreshCw, 
-  ArrowDownCircle, Database, Filter, ChevronDown, Clock,
-  AlertCircle, ShieldAlert, Bug, Info, Activity
+  Terminal, Search, Trash2, RefreshCw, ArrowDownCircle, Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +81,7 @@ export default function LogsPage() {
     }
   };
 
-  const fetchLogs = async (isReset = false) => {
+  const fetchLogs = useCallback(async (isReset = false) => {
     if (!client || !connected) return;
     if (isReset) setLoading(true);
     try {
@@ -110,12 +106,12 @@ export default function LogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [client, connected, cursor, toast]);
 
   useEffect(() => {
     fetchLogs(true);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [client, connected]);
+  }, [fetchLogs]);
 
   useEffect(() => {
     if (autoFollow) {
@@ -125,7 +121,7 @@ export default function LogsPage() {
       if (timerRef.current) clearInterval(timerRef.current);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [autoFollow, cursor]);
+  }, [autoFollow, fetchLogs]);
 
   useEffect(() => {
     if (autoFollow && scrollRef.current) {
@@ -151,17 +147,6 @@ export default function LogsPage() {
     if (next.has(level)) next.delete(level);
     else next.add(level);
     setExcludedLevels(next);
-  };
-
-  const handleExport = () => {
-    const content = filteredEntries.map(e => e.raw).join("\n");
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `openclaw-logs-${new Date().toISOString()}.log`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (

@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Native / generated build artifacts:
+    "android/**/build/**",
+    "android/.gradle/**",
+    "android/app/src/main/assets/**",
+    "ios/**/DerivedData/**",
+    "ios/**/public/**",
+    // Local service data:
+    "community-api/data/attachments/**",
   ]),
 ]);
 

@@ -20,6 +20,13 @@ interface GithubRelease {
   assets?: GithubAsset[];
 }
 
+function extractSemverVersion(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const normalized = String(value).trim();
+  const match = normalized.match(/(\d+\.\d+\.\d+)/);
+  return match ? match[1] : null;
+}
+
 export interface ReleaseInfo {
   version: string;
   tagName: string;
@@ -43,6 +50,7 @@ export function useAppUpdate() {
     release: null,
     error: null,
   });
+  const release = state.release;
 
   const getCurrentVersion = useCallback((): string => {
     // 从环境变量获取版本（在 next.config.js 中设置）
@@ -64,6 +72,16 @@ export function useAppUpdate() {
       });
 
       const data = response.data as GithubRelease;
+      const releaseVersion = extractSemverVersion(data.tag_name);
+
+      if (!releaseVersion) {
+        setState(prev => ({
+          ...prev,
+          status: "error",
+          error: "最新 Release 的标签不是有效版本号，请使用 v主版本.次版本.修订号 格式，例如 v2026.4.3",
+        }));
+        return null;
+      }
 
       // 查找 APK 资源
       const apkAsset = data.assets?.find((asset: GithubAsset) =>
@@ -80,7 +98,7 @@ export function useAppUpdate() {
       }
 
       const releaseInfo: ReleaseInfo = {
-        version: data.tag_name?.replace(/^v/, "") || "0.0.0",
+        version: releaseVersion,
         tagName: data.tag_name || "",
         body: data.body || "暂无更新说明",
         publishedAt: data.published_at || "",
@@ -88,7 +106,7 @@ export function useAppUpdate() {
         fileSize: apkAsset.size || 0,
       };
 
-      const currentVersion = getCurrentVersion();
+      const currentVersion = extractSemverVersion(getCurrentVersion()) || "0.0.0";
       const hasUpdate = compareVersions(releaseInfo.version, currentVersion) > 0;
 
       setState(prev => ({
@@ -122,7 +140,7 @@ export function useAppUpdate() {
   }, [getCurrentVersion]);
 
   const downloadUpdate = useCallback(async () => {
-    if (!state.release?.apkUrl) {
+    if (!release?.apkUrl) {
       setState(prev => ({ ...prev, error: "无下载链接" }));
       return;
     }
@@ -132,16 +150,16 @@ export function useAppUpdate() {
     try {
       // 打开下载链接，浏览器会处理下载
       // 在 Capacitor 环境下会调用原生浏览器
-      window.open(state.release.apkUrl, "_blank");
+      window.open(release.apkUrl, "_blank");
       setState(prev => ({ ...prev, status: "ready" }));
-    } catch (browserError) {
+    } catch {
       setState(prev => ({
         ...prev,
         status: "error",
         error: "无法打开下载链接",
       }));
     }
-  }, [state.release?.apkUrl]);
+  }, [release]);
 
   const reset = useCallback(() => {
     setState({

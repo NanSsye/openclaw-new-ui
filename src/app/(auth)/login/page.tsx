@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { getStoredProfile, saveStoredProfile } from "@/hooks/use-profile";
 import { AnimatedCharacters } from "@/components/ui/animated-characters";
+import { verifyGatewayConnection } from "@/lib/openclaw/gateway-client";
 
 const gatewaySchema = z.object({
   username: z.string().trim().min(1, { message: "请输入用户名。" }),
@@ -40,6 +41,7 @@ type GatewayFormValues = {
 type StoredSettings = {
   gatewayUrl?: string;
   sessionKey?: string;
+  password?: string;
   rememberMe?: boolean;
   autoLogin?: boolean;
   chatShowThinking?: boolean;
@@ -77,11 +79,18 @@ export default function LoginPage() {
   const persistSettings = useCallback((data: GatewayFormValues) => {
     const KEY = "openclaw.control.settings.v1";
     const TOKEN_KEY = "openclaw.control.token.v1";
+    const PASSWORD_KEY = "openclaw.control.password.v1";
 
     if (!data.rememberMe) {
       localStorage.removeItem(KEY);
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(PASSWORD_KEY);
       sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
+      if (data.password) {
+        sessionStorage.setItem(PASSWORD_KEY, data.password);
+      } else {
+        sessionStorage.removeItem(PASSWORD_KEY);
+      }
       return;
     }
 
@@ -99,6 +108,7 @@ export default function LoginPage() {
       ...existingSettings,
       gatewayUrl: data.websocketUrl || existingSettings.gatewayUrl || "",
       sessionKey: data.sessionSecret || existingSettings.sessionKey || "main",
+      password: data.password || "",
       rememberMe: data.rememberMe,
       autoLogin: data.autoLogin,
       // Default fallback for critical UI settings if not already present
@@ -112,20 +122,31 @@ export default function LoginPage() {
       localStorage.setItem(TOKEN_KEY, data.gatewayToken);
       sessionStorage.setItem(TOKEN_KEY, data.gatewayToken);
     }
+    if (data.password) {
+      localStorage.setItem(PASSWORD_KEY, data.password);
+      sessionStorage.setItem(PASSWORD_KEY, data.password);
+    } else {
+      localStorage.removeItem(PASSWORD_KEY);
+      sessionStorage.removeItem(PASSWORD_KEY);
+    }
   }, []);
 
   const onGatewaySubmit = useCallback(async (values: GatewayFormValues) => {
     setIsLoading(true);
     setError("");
     try {
-      console.log("Gateway Login:", values);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await verifyGatewayConnection({
+        url: values.websocketUrl,
+        token: values.gatewayToken,
+        password: values.password,
+        timeoutMs: 12000,
+      });
       persistSettings(values);
       saveStoredProfile({ nickname: values.username.trim() });
       router.push("/dashboard");
       toast({
         title: "网关连接成功",
-        description: values.rememberMe ? "已保存登录信息，下次将自动登录。" : "已成功建立 WebSocket 链接。",
+        description: values.rememberMe ? "连接验证成功，已保存登录信息，下次将自动登录。" : "连接验证成功，已成功建立 WebSocket 链接。",
         duration: 2000
       });
     } catch (err: unknown) {
@@ -142,6 +163,7 @@ export default function LoginPage() {
     const rawSettings = localStorage.getItem("openclaw.control.settings.v1");
     const profile = getStoredProfile();
     const username = profile?.nickname ?? "";
+    const savedPassword = localStorage.getItem("openclaw.control.password.v1") || sessionStorage.getItem("openclaw.control.password.v1") || "";
 
     if (rawSettings) {
       try {
@@ -151,7 +173,7 @@ export default function LoginPage() {
           username,
           websocketUrl: settings.gatewayUrl || "",
           gatewayToken: token,
-          password: "",
+          password: savedPassword || settings.password || "",
           sessionSecret: settings.sessionKey || "agent:main:main",
           rememberMe: settings.rememberMe !== undefined ? settings.rememberMe : true,
           autoLogin: settings.autoLogin !== undefined ? settings.autoLogin : false,
@@ -172,7 +194,7 @@ export default function LoginPage() {
         username,
         websocketUrl: "",
         gatewayToken: "",
-        password: "",
+        password: savedPassword,
         sessionSecret: "agent:main:main",
         rememberMe: true,
         autoLogin: false,
@@ -190,6 +212,7 @@ export default function LoginPage() {
     if (autoLoginAttemptedRef.current) return; // Already attempted
 
     const savedToken = localStorage.getItem("openclaw.control.token.v1");
+    const savedPassword = localStorage.getItem("openclaw.control.password.v1") || sessionStorage.getItem("openclaw.control.password.v1") || "";
     const savedUrl = (() => {
       const raw = localStorage.getItem("openclaw.control.settings.v1");
       if (raw) {
@@ -221,10 +244,14 @@ export default function LoginPage() {
       const timer = setTimeout(() => {
         // Set form values explicitly before submitting
         gatewayForm.setValue("gatewayToken", savedToken);
+        gatewayForm.setValue("password", savedPassword);
         gatewayForm.setValue("websocketUrl", savedUrl);
         gatewayForm.setValue("sessionSecret", savedSessionKey);
         // Also save to sessionStorage for GatewayProvider
         sessionStorage.setItem("openclaw.control.token.v1", savedToken);
+        if (savedPassword) {
+          sessionStorage.setItem("openclaw.control.password.v1", savedPassword);
+        }
         // Submit
         gatewayForm.handleSubmit(onGatewaySubmit)();
       }, 600);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Dialog, DialogContent, DialogHeader, 
   DialogTitle, DialogDescription, DialogFooter 
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useGateway } from "@/context/gateway-context";
 import { QrCode, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface WhatsAppLoginModalProps {
   open: boolean;
@@ -21,12 +22,39 @@ export function WhatsAppLoginModal({ open, onOpenChange }: WhatsAppLoginModalPro
   const [status, setStatus] = useState<"idle" | "loading" | "waiting" | "logged-in" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
-  const startLogin = async () => {
+  const resetState = useCallback(() => {
+    setQrCode(null);
+    setStatus("idle");
+    setMessage(null);
+  }, []);
+
+  const waitLogin = useCallback(async () => {
+    if (!client || !connected) return;
+    try {
+      const res = await client.request<{ connected?: boolean; message?: string }>("web.login.wait", { timeoutMs: 120000 });
+      if (res.connected) {
+        setStatus("logged-in");
+        setMessage("登录成功！");
+        setQrCode(null);
+        setTimeout(() => onOpenChange(false), 2000);
+      } else {
+        setMessage(res.message || "登录未完成");
+      }
+    } catch (e: unknown) {
+      if (open) {
+        console.error(e);
+        setMessage("等待超时，请重试");
+        setStatus("error");
+      }
+    }
+  }, [client, connected, onOpenChange, open]);
+
+  const startLogin = useCallback(async () => {
     if (!client || !connected) return;
     setStatus("loading");
     setMessage("正在初始化 WhatsApp 登录...");
     try {
-      const res = await client.request("web.login.start", { force: true, timeoutMs: 30000 });
+      const res = await client.request<{ qrDataUrl?: string; message?: string }>("web.login.start", { force: true, timeoutMs: 30000 });
       if (res.qrDataUrl) {
         setQrCode(res.qrDataUrl);
         setStatus("waiting");
@@ -37,42 +65,26 @@ export function WhatsAppLoginModal({ open, onOpenChange }: WhatsAppLoginModalPro
         setMessage(res.message || "初始化失败");
         setStatus("error");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setMessage(e.message || "请求出错了");
+      setMessage(e instanceof Error ? e.message : "请求出错了");
       setStatus("error");
     }
-  };
-
-  const waitLogin = async () => {
-    if (!client || !connected) return;
-    try {
-      const res = await client.request("web.login.wait", { timeoutMs: 120000 });
-      if (res.connected) {
-        setStatus("logged-in");
-        setMessage("登录成功！");
-        setQrCode(null);
-        setTimeout(() => onOpenChange(false), 2000);
-      } else {
-        setMessage(res.message || "登录未完成");
-      }
-    } catch (e: any) {
-        if (open) {
-            console.error(e);
-            setMessage("等待超时，请重试");
-            setStatus("error");
-        }
-    }
-  };
+  }, [client, connected, waitLogin]);
 
   useEffect(() => {
     if (open) {
-      startLogin();
+      const timer = setTimeout(() => {
+        startLogin();
+      }, 0);
+      return () => clearTimeout(timer);
     } else {
-      setQrCode(null);
-      setStatus("idle");
+      const timer = setTimeout(() => {
+        resetState();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, resetState, startLogin]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,7 +102,7 @@ export function WhatsAppLoginModal({ open, onOpenChange }: WhatsAppLoginModalPro
         <div className="flex flex-col items-center justify-center p-8 space-y-6">
           <div className="size-64 bg-muted/20 border border-border/50 rounded-2xl flex items-center justify-center relative overflow-hidden group">
             {qrCode ? (
-                <img src={qrCode} alt="WhatsApp QR Code" className="size-full p-2" />
+                <Image src={qrCode} alt="WhatsApp QR Code" fill unoptimized className="p-2 object-contain" />
             ) : status === "loading" ? (
                 <Loader2 className="size-12 text-primary animate-spin opacity-20" />
             ) : status === "logged-in" ? (
