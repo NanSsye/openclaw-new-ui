@@ -6,7 +6,7 @@ import {
   History, LayoutDashboard, MessageSquare, Radio,
   Settings, Terminal, Zap, LogOut, ChevronRight,
   Database, Activity, Clock, Bell, Sun, Moon, User, Cpu, Server,
-  PanelLeft, RefreshCw, Users
+  PanelLeft, RefreshCw, Users, Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -173,6 +173,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar overflow-x-hidden">
           <SidebarGroup title="聊天" collapsed={sidebarCollapsed}>
             <SidebarItem icon={<MessageSquare className="size-4" />} label="聊天" href="/chat" active={pathname === "/chat"} collapsed={sidebarCollapsed} />
+            <SidebarItem icon={<Bot className="size-4" />} label="协作" href="/collab" active={pathname === "/collab"} collapsed={sidebarCollapsed} />
           </SidebarGroup>
 
           <SidebarGroup title="社区" collapsed={sidebarCollapsed}>
