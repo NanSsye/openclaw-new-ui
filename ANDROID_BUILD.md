@@ -253,3 +253,27 @@ git push origin v2026.4.4
 
 以后不要再通过手工来回修改 `next.config.ts` 进行切换。
 
+## 本地一键构建 APK
+
+新增脚本：`scripts/build-android.ps1`
+
+### Debug APK
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-android.ps1
+```
+
+### Release APK
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-android.ps1 -Release
+```
+
+### 脚本会自动完成
+1. `npm ci`
+2. `NEXT_OUTPUT_MODE=export npm run build`
+3. `npx cap sync android`
+4. 检查 `android/app/src/main/assets/public/collab.html` 是否存在
+5. 构建 APK
+
+### 输出路径
+- Debug: `android/app/build/outputs/apk/debug/app-debug.apk`
+- Release: `android/app/build/outputs/apk/release/app-release.apk`
