@@ -43,14 +43,14 @@ export function CollabTimeline({ timeline, agents }: { timeline: CollabTimelineM
     if (!container) return;
     const timer = setTimeout(() => {
       container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
-      setShowScrollBottomButton(false);
+      setShowScrollBottomButton((prev) => (prev ? false : prev));
     }, 0);
     return () => clearTimeout(timer);
   }, [filteredTimeline.length, agentFilter, sourceFilter]);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    setShowScrollBottomButton(false);
+    setShowScrollBottomButton((prev) => (prev ? false : prev));
   };
 
   return (
@@ -120,7 +120,8 @@ export function CollabTimeline({ timeline, agents }: { timeline: CollabTimelineM
         onScroll={(event) => {
           const target = event.currentTarget;
           const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-          setShowScrollBottomButton(distanceToBottom > 160);
+          const nextVisible = distanceToBottom > 160;
+          setShowScrollBottomButton((prev) => (prev === nextVisible ? prev : nextVisible));
         }}
         className="relative p-3 sm:p-4 md:p-5 space-y-4 sm:space-y-5 max-h-[calc(100vh-13rem)] md:max-h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar"
       >

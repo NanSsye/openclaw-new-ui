@@ -120,6 +120,7 @@ export function useCollabSessions({
   toast: (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
 }) {
   const roomId = room?.id;
+  const roomWorkerAgentIdsKey = room?.workerAgentIds.join("|") ?? "";
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [histories, setHistories] = useState<CollabHistoryMap>({});
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -129,10 +130,15 @@ export function useCollabSessions({
   const [historyReady, setHistoryReady] = useState(false);
 
   const historiesRef = useRef<CollabHistoryMap>({});
+  const roomRef = useRef<CollabRoom | null>(room);
 
   useEffect(() => {
     historiesRef.current = histories;
   }, [histories]);
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
 
   useEffect(() => {
     if (!roomId) {
@@ -149,17 +155,22 @@ export function useCollabSessions({
       const nextHistories = parsed && typeof parsed === "object" ? parsed : {};
       setHistories(nextHistories);
 
-      if (room) {
+      const currentRoom = roomRef.current;
+      if (currentRoom) {
         const discoveredChildSessionKeys = Object.keys(nextHistories).filter((sessionKey) => {
           const agentId = getAgentIdFromSessionKey(sessionKey);
-          return room.workerAgentIds.includes(agentId) && sessionKey.includes(":subagent:");
+          return currentRoom.workerAgentIds.includes(agentId) && sessionKey.includes(":subagent:");
         });
         if (discoveredChildSessionKeys.length > 0) {
-          onUpdateRoom(room.id, (current) => ({
-            ...current,
-            childSessionKeys: Array.from(new Set([...current.childSessionKeys, ...discoveredChildSessionKeys])),
-            updatedAt: current.updatedAt,
-          }));
+          onUpdateRoom(currentRoom.id, (current) => {
+            const mergedKeys = Array.from(new Set([...current.childSessionKeys, ...discoveredChildSessionKeys]));
+            if (mergedKeys.length === current.childSessionKeys.length) return current;
+            return {
+              ...current,
+              childSessionKeys: mergedKeys,
+              updatedAt: current.updatedAt,
+            };
+          });
         }
       }
     } catch {
@@ -167,7 +178,7 @@ export function useCollabSessions({
     } finally {
       setHistoryReady(true);
     }
-  }, [onUpdateRoom, room, roomId]);
+  }, [onUpdateRoom, roomId, roomWorkerAgentIdsKey]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !roomId || !historyReady) return;
@@ -202,11 +213,15 @@ export function useCollabSessions({
         .map((ref) => ref.sessionKey)
         .filter((sessionKey) => !room.childSessionKeys.includes(sessionKey));
       if (discoveredChildSessionKeys.length > 0) {
-        onUpdateRoom(room.id, (current) => ({
-          ...current,
-          childSessionKeys: Array.from(new Set([...current.childSessionKeys, ...discoveredChildSessionKeys])),
-          updatedAt: current.updatedAt,
-        }));
+        onUpdateRoom(room.id, (current) => {
+          const mergedKeys = Array.from(new Set([...current.childSessionKeys, ...discoveredChildSessionKeys]));
+          if (mergedKeys.length === current.childSessionKeys.length) return current;
+          return {
+            ...current,
+            childSessionKeys: mergedKeys,
+            updatedAt: current.updatedAt,
+          };
+        });
       }
 
       const nextHistories: CollabHistoryMap = {};
