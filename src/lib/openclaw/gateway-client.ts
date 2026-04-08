@@ -141,7 +141,7 @@ export function verifyGatewayConnection({
             maxProtocol: 5,
             client: {
               id: "openclaw-control-ui",
-              version: "v2026.3.11",
+              version: "v2026.4.8",
               platform: "web",
               mode: "webchat",
             },
@@ -321,7 +321,7 @@ export class GatewayClient {
       maxProtocol: 5,
       client: {
         id: "openclaw-control-ui", // CRITICAL: Must be this to pass schema
-        version: "v2026.3.11",
+        version: "v2026.4.8",
         platform: "web",
         mode: "webchat",
       },

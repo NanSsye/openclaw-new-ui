@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GatewayClient } from "@/lib/openclaw/gateway-client";
 import type {
-  ChatHistoryResponse,
   ConfigData,
   ConfigGetResponse,
   ModelItem,
@@ -17,17 +16,9 @@ import type {
 export function useChatSession({
   client,
   connected,
-  toast,
-  scrollRef,
-  clearPendingAttachments,
-  setMessages,
 }: {
   client: GatewayClient | null;
   connected: boolean;
-  toast: (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
-  scrollRef: RefObject<HTMLDivElement | null>;
-  clearPendingAttachments: () => void;
-  setMessages: React.Dispatch<React.SetStateAction<import("@/lib/openclaw/chat-types").ChatMessage[]>>;
 }) {
   const [activeSession, setActiveSession] = useState("main");
   const [showDetails, setShowDetails] = useState(true);
@@ -115,19 +106,6 @@ export function useChatSession({
     }
   }, [client, connected]);
 
-  const fetchHistory = useCallback(async (key: string) => {
-    if (!client || !connected) return;
-    try {
-      const res = await client.request<ChatHistoryResponse>("chat.history", { sessionKey: key, limit: 100 });
-      setMessages(res.messages || []);
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "auto" });
-      }, 100);
-    } catch {
-      toast({ title: "加载历史失败", description: "无法同步漫游记录", variant: "destructive" });
-    }
-  }, [client, connected, scrollRef, setMessages, toast]);
-
   useEffect(() => {
     if (connected && client && !initRef.current) {
       initRef.current = true;
@@ -135,11 +113,10 @@ export function useChatSession({
         await fetchConfig();
         await fetchSessions();
         await fetchModels();
-        await fetchHistory(activeSession);
       };
       init();
     }
-  }, [connected, client, activeSession, fetchConfig, fetchHistory, fetchModels, fetchSessions]);
+  }, [client, connected, fetchConfig, fetchModels, fetchSessions]);
 
   const activeModelData = useMemo(() => models.find((m) => m.id === selectedModel), [models, selectedModel]);
 
@@ -166,11 +143,8 @@ export function useChatSession({
   }, []);
 
   const handleSwitchSession = useCallback((key: string) => {
-    clearPendingAttachments();
     setActiveSession(key);
-    setMessages([]);
-    fetchHistory(key);
-  }, [clearPendingAttachments, fetchHistory, setMessages]);
+  }, []);
 
   const handleNewSession = useCallback(() => {
     const newKey = `s-${Math.random().toString(36).slice(2, 8)}`;
@@ -195,7 +169,6 @@ export function useChatSession({
     fetchModels,
     fetchConfig,
     fetchUsage,
-    fetchHistory,
     toggleDetails,
     handleSwitchSession,
     handleNewSession,

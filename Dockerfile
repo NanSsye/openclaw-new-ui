@@ -1,14 +1,13 @@
 # 第一阶段: 仅在需要时安装依赖
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # 根据首选的包管理器安装依赖
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # 第二阶段: 仅在需要时重新构建源代码
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -21,10 +20,10 @@ COPY . .
 RUN npm run build
 
 # 第三阶段: 生产环境镜像，复制所有文件并运行 next
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 # 如果你想在运行时禁用遥测，请取消下面一行的注释。
 # ENV NEXT_TELEMETRY_DISABLED 1
 
@@ -46,7 +45,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 
 # server.js 是通过 standalone 输出由 next build 创建的
 # 详情见: https://nextjs.org/docs/pages/api-reference/next-config-js/output

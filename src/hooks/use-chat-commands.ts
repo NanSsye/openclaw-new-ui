@@ -20,13 +20,16 @@ function buildCommandMessage(content: string): ChatMessage {
     content,
     attachments: [],
     createdAt: new Date().toISOString(),
+    optimistic: true,
   };
 }
 
 export function useChatCommands({
   client,
   activeSession,
-  setMessages,
+  appendOptimisticMessage,
+  removeMessage,
+  invalidateHistory,
   setIsTyping,
   setInputText,
   setSelectedModel,
@@ -34,7 +37,9 @@ export function useChatCommands({
 }: {
   client: GatewayClient | null;
   activeSession: string;
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  appendOptimisticMessage: (message: ChatMessage) => void;
+  removeMessage: (messageId: string) => void;
+  invalidateHistory: (sessionKey?: string) => void;
   setIsTyping: React.Dispatch<React.SetStateAction<boolean>>;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
   setSelectedModel: React.Dispatch<React.SetStateAction<string>>;
@@ -42,13 +47,15 @@ export function useChatCommands({
 }) {
   const sendCommand = useCallback((content: string) => {
     const userMessage = buildCommandMessage(content);
-    setMessages((prev) => [...prev, userMessage]);
+    appendOptimisticMessage(userMessage);
     setIsTyping(true);
+    invalidateHistory(activeSession);
     client?.request("chat.send", {
       sessionKey: activeSession,
       message: content,
       idempotencyKey: userMessage.id,
     }).catch((error: unknown) => {
+      removeMessage(userMessage.id || "");
       setIsTyping(false);
       toast({
         title: "命令执行失败",
@@ -56,7 +63,7 @@ export function useChatCommands({
         variant: "destructive",
       });
     });
-  }, [activeSession, client, setIsTyping, setMessages, toast]);
+  }, [activeSession, appendOptimisticMessage, client, invalidateHistory, removeMessage, setIsTyping, toast]);
 
   const handleSelectModel = useCallback((modelId: string) => {
     setSelectedModel(modelId);

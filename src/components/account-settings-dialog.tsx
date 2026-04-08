@@ -225,7 +225,7 @@ export function AccountSettingsDialog({
                   </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">连接协议 (Protocol)</Label>
-                  <Input value="v2026.3.11" className="font-mono text-sm bg-muted/50" disabled />
+                  <Input value="v2026.4.8" className="font-mono text-sm bg-muted/50" disabled />
                   <p className="text-[10px] text-muted-foreground">此参数为当前客户端硬编码强制绑定的版本。</p>
                 </div>
                 </div>
@@ -314,7 +314,7 @@ export function AccountSettingsDialog({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">连接协议 (Protocol)</Label>
-                  <Input value="v2026.3.11" className="font-mono text-sm bg-muted/50" disabled />
+                  <Input value="v2026.4.8" className="font-mono text-sm bg-muted/50" disabled />
                   <p className="text-[10px] text-muted-foreground">此参数为当前客户端硬编码强制绑定的版本。</p>
                 </div>
               </div>

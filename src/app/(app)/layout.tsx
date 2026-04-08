@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   History, LayoutDashboard, MessageSquare, Radio,
   Settings, Terminal, Zap, LogOut, ChevronRight,
   Database, Activity, Clock, Bell, Sun, Moon, User, Cpu, Server,
-  PanelLeft, RefreshCw, Users, Bot
+  PanelLeft, RefreshCw, Users, Bot, BrainCircuit, Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +49,11 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const { state: updateState } = useAppUpdate();
 
@@ -191,6 +196,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
           <SidebarGroup title="代理" collapsed={sidebarCollapsed}>
             <SidebarItem icon={<Server className="size-4" />} label="代理" href="/agents" active={pathname === "/agents"} collapsed={sidebarCollapsed} />
+            <SidebarItem icon={<BrainCircuit className="size-4" />} label="模型" href="/models" active={pathname === "/models"} collapsed={sidebarCollapsed} />
+            <SidebarItem icon={<Wrench className="size-4" />} label="工具" href="/tools" active={pathname === "/tools"} collapsed={sidebarCollapsed} />
             <SidebarItem icon={<Zap className="size-4" />} label="技能" href="/skills" active={pathname === "/skills"} collapsed={sidebarCollapsed} />
             <SidebarItem icon={<Database className="size-4" />} label="节点" href="/nodes" active={pathname === "/nodes"} collapsed={sidebarCollapsed} />
           </SidebarGroup>
@@ -226,7 +233,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
               connected ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
             )}>
               <span className={cn("size-1.5 sm:size-2 rounded-full shrink-0", connected ? "bg-green-500" : "bg-red-500")} />
-              <span className="hidden sm:inline">版本</span> <span className={cn(connected ? "text-green-500" : "text-red-500")}>{snapshot?.server?.version || "2026.3.11"}</span>
+              <span className="hidden sm:inline">版本</span> <span className={cn(connected ? "text-green-500" : "text-red-500")}>{snapshot?.server?.version || "2026.4.8"}</span>
             </div>
              
              {/* Portal Target for Dynamic Page Components */}
@@ -234,23 +241,29 @@ function AppContent({ children }: { children: React.ReactNode }) {
           </div>
           
           <div className="flex items-center gap-0.5 sm:gap-3 shrink-0">
-             <DropdownMenu>
-               <DropdownMenuTrigger asChild>
-                 <Button variant="ghost" size="icon" className="rounded-full size-8 sm:size-10 relative">
-                   <Bell className="size-3.5 sm:size-4 text-muted-foreground" />
-                 </Button>
-               </DropdownMenuTrigger>
-               <DropdownMenuContent align="end" className="w-72 sm:w-80 p-0 border-border/50 shadow-2xl rounded-xl sm:rounded-2xl overflow-hidden mt-1 sm:mt-2">
-                 <div className="p-3 sm:p-4 border-b border-border/50 bg-muted/20">
-                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground">消息中心</p>
-                 </div>
-                 <div className="p-6 sm:p-8 text-center bg-background/50 backdrop-blur">
-                    <Bell className="size-8 text-muted-foreground/30 mx-auto" strokeWidth={1} />
-                    <p className="mt-4 text-xs sm:text-[13px] font-bold text-muted-foreground">暂无新的告警通知</p>
-                    <p className="mt-1.5 text-[9px] sm:text-[11px] font-medium text-muted-foreground/40 break-keep">您当前的所有服务均已就绪，节点保持正常运行。</p>
-                 </div>
-               </DropdownMenuContent>
-             </DropdownMenu>
+             {mounted ? (
+               <DropdownMenu>
+                 <DropdownMenuTrigger asChild>
+                   <Button variant="ghost" size="icon" className="rounded-full size-8 sm:size-10 relative">
+                     <Bell className="size-3.5 sm:size-4 text-muted-foreground" />
+                   </Button>
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent align="end" className="w-72 sm:w-80 p-0 border-border/50 shadow-2xl rounded-xl sm:rounded-2xl overflow-hidden mt-1 sm:mt-2">
+                   <div className="p-3 sm:p-4 border-b border-border/50 bg-muted/20">
+                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground">消息中心</p>
+                   </div>
+                   <div className="p-6 sm:p-8 text-center bg-background/50 backdrop-blur">
+                      <Bell className="size-8 text-muted-foreground/30 mx-auto" strokeWidth={1} />
+                      <p className="mt-4 text-xs sm:text-[13px] font-bold text-muted-foreground">暂无新的告警通知</p>
+                      <p className="mt-1.5 text-[9px] sm:text-[11px] font-medium text-muted-foreground/40 break-keep">您当前的所有服务均已就绪，节点保持正常运行。</p>
+                   </div>
+                 </DropdownMenuContent>
+               </DropdownMenu>
+             ) : (
+               <Button variant="ghost" size="icon" className="rounded-full size-8 sm:size-10 relative">
+                 <Bell className="size-3.5 sm:size-4 text-muted-foreground" />
+               </Button>
+             )}
 
              <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full size-8 sm:size-10 transition-all active:scale-90 group relative overflow-hidden">
                 {isDarkMode ? (
@@ -261,50 +274,56 @@ function AppContent({ children }: { children: React.ReactNode }) {
              </Button>
              <div className="size-px h-4 sm:h-6 bg-border mx-1 sm:mx-1" />
              
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative size-8 rounded-full p-0 flex items-center justify-center bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all shrink-0 overflow-hidden">
-                    {profile.avatar ? (
-                      <Image src={profile.avatar} alt="Avatar" fill unoptimized className="object-cover" />
-                    ) : (
-                      <User className="size-4 text-primary" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 rounded-xl border-border/50 shadow-xl" align="end">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none tracking-tight">{profile.nickname}</p>
-                      <p className="text-xs leading-none text-muted-foreground font-medium opacity-60 truncate">{profile.bio}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border/30" />
-                  <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setProfileOpen(true)}>
-                    <User className="size-4 opacity-60" />
-                    <span>个人资料</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setSettingsOpen(true)}>
-                    <Settings className="size-4 opacity-60" />
-                    <span>账户设置</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setUpdateOpen(true)}>
-                    {updateState.status === "checking" ? (
-                      <RefreshCw className="size-4 opacity-60 animate-spin" />
-                    ) : (
-                      <RefreshCw className="size-4 opacity-60" />
-                    )}
-                    <span>检查更新</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border/30" />
-                  <DropdownMenuItem 
-                    className="rounded-lg gap-3 py-2.5 text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer font-bold"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="size-4" />
-                    <span>退出登录</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+             {mounted ? (
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative size-8 rounded-full p-0 flex items-center justify-center bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all shrink-0 overflow-hidden">
+                      {profile.avatar ? (
+                        <Image src={profile.avatar} alt="Avatar" fill unoptimized className="object-cover" />
+                      ) : (
+                        <User className="size-4 text-primary" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 rounded-xl border-border/50 shadow-xl" align="end">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none tracking-tight">{profile.nickname}</p>
+                        <p className="text-xs leading-none text-muted-foreground font-medium opacity-60 truncate">{profile.bio}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-border/30" />
+                    <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setProfileOpen(true)}>
+                      <User className="size-4 opacity-60" />
+                      <span>个人资料</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setSettingsOpen(true)}>
+                      <Settings className="size-4 opacity-60" />
+                      <span>账户设置</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg gap-3 py-2.5 cursor-pointer font-medium" onClick={() => setUpdateOpen(true)}>
+                      {updateState.status === "checking" ? (
+                        <RefreshCw className="size-4 opacity-60 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4 opacity-60" />
+                      )}
+                      <span>检查更新</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-border/30" />
+                    <DropdownMenuItem 
+                      className="rounded-lg gap-3 py-2.5 text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer font-bold"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="size-4" />
+                      <span>退出登录</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+             ) : (
+               <Button variant="ghost" className="relative size-8 rounded-full p-0 flex items-center justify-center bg-primary/10 border border-primary/20 transition-all shrink-0 overflow-hidden">
+                 <User className="size-4 text-primary" />
+               </Button>
+             )}
           </div>
         </header>
 

@@ -108,7 +108,8 @@ export function ChatToolbar({
   }, {});
 
   return (
-    <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-2 sm:mb-4">
+    <div className="w-full space-y-2 mb-2 sm:mb-4">
+      <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <div className="flex w-max items-center gap-1 px-1 pb-1">
         <div className="relative shrink-0">
           <DropdownMenu>
@@ -320,6 +321,7 @@ export function ChatToolbar({
         >
           <Zap className="size-3.5" />
         </Button>
+      </div>
       </div>
     </div>
   );

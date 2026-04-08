@@ -12,6 +12,18 @@ type StoredState = {
   rooms: CollabRoom[];
 };
 
+function normalizeRoom(rawRoom: CollabRoom): CollabRoom {
+  return {
+    ...rawRoom,
+    archivedAt: typeof rawRoom.archivedAt === "number" ? rawRoom.archivedAt : null,
+    autoIncludeWorkerSessions: rawRoom.autoIncludeWorkerSessions ?? false,
+    historyCache:
+      rawRoom.historyCache && typeof rawRoom.historyCache === "object"
+        ? rawRoom.historyCache
+        : {},
+  };
+}
+
 function readStoredState(): StoredState {
   if (typeof window === "undefined") {
     return { rooms: [], activeRoomId: null };
@@ -22,7 +34,7 @@ function readStoredState(): StoredState {
     if (!raw) return { rooms: [], activeRoomId: null };
     const parsed = JSON.parse(raw) as Partial<StoredState>;
     return {
-      rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
+      rooms: Array.isArray(parsed.rooms) ? parsed.rooms.map((room) => normalizeRoom(room)) : [],
       activeRoomId: typeof parsed.activeRoomId === "string" || parsed.activeRoomId === null ? parsed.activeRoomId ?? null : null,
     };
   } catch {
@@ -67,7 +79,8 @@ export function useCollabRoom() {
       status: "draft",
       archivedAt: null,
       notes: input.notes?.trim() || "",
-      autoIncludeWorkerSessions: input.autoIncludeWorkerSessions ?? true,
+      autoIncludeWorkerSessions: input.autoIncludeWorkerSessions ?? false,
+      historyCache: {},
     };
     setStoredState((prev) => ({ rooms: [room, ...prev.rooms], activeRoomId: room.id }));
     return room;
@@ -98,10 +111,6 @@ export function useCollabRoom() {
       status: room.status === "draft" ? "done" : room.status,
       updatedAt: Date.now(),
     }));
-    setStoredState((prev) => ({
-      ...prev,
-      activeRoomId: prev.activeRoomId === roomId ? null : prev.activeRoomId,
-    }));
   }, [updateRoom]);
 
   const restoreRoom = useCallback((roomId: string) => {
@@ -126,5 +135,31 @@ export function useCollabRoom() {
     }));
   }, []);
 
-  return { rooms, activeRoomId, activeRoom, setActiveRoomId, createRoom, updateRoom, addChildSession, archiveRoom, restoreRoom, deleteRoom };
+  const setRoomHistoryCache = useCallback((roomId: string, historyCache: NonNullable<CollabRoom["historyCache"]>) => {
+    setStoredState((prev) => ({
+      ...prev,
+      rooms: prev.rooms.map((room) => (
+        room.id === roomId
+          ? {
+              ...room,
+              historyCache,
+            }
+          : room
+      )),
+    }));
+  }, []);
+
+  return {
+    rooms,
+    activeRoomId,
+    activeRoom,
+    setActiveRoomId,
+    createRoom,
+    updateRoom,
+    addChildSession,
+    archiveRoom,
+    restoreRoom,
+    deleteRoom,
+    setRoomHistoryCache,
+  };
 }

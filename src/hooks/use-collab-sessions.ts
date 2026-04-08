@@ -111,12 +111,14 @@ export function useCollabSessions({
   connected,
   room,
   onUpdateRoom,
+  onPersistHistoryCache,
   toast,
 }: {
   client: GatewayClient | null;
   connected: boolean;
   room: CollabRoom | null;
   onUpdateRoom: (roomId: string, updater: (room: CollabRoom) => CollabRoom) => void;
+  onPersistHistoryCache: (roomId: string, historyCache: CollabHistoryMap) => void;
   toast: (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
 }) {
   const roomId = room?.id;
@@ -152,7 +154,11 @@ export function useCollabSessions({
     try {
       const raw = localStorage.getItem(`${HISTORY_CACHE_PREFIX}${roomId}`);
       const parsed = raw ? JSON.parse(raw) as CollabHistoryMap : {};
-      const nextHistories = parsed && typeof parsed === "object" ? parsed : {};
+      const persistedHistory = roomRef.current?.historyCache && typeof roomRef.current.historyCache === "object"
+        ? roomRef.current.historyCache
+        : {};
+      const localHistory = parsed && typeof parsed === "object" ? parsed : {};
+      const nextHistories = { ...persistedHistory, ...localHistory };
       setHistories(nextHistories);
 
       const currentRoom = roomRef.current;
@@ -183,7 +189,8 @@ export function useCollabSessions({
   useEffect(() => {
     if (typeof window === "undefined" || !roomId || !historyReady) return;
     localStorage.setItem(`${HISTORY_CACHE_PREFIX}${roomId}`, JSON.stringify(histories));
-  }, [histories, historyReady, roomId]);
+    onPersistHistoryCache(roomId, histories);
+  }, [histories, historyReady, onPersistHistoryCache, roomId]);
 
   const refreshSessions = useCallback(async () => {
     if (!client || !connected) return [] as SessionItem[];

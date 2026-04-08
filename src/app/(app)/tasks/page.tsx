@@ -113,6 +113,12 @@ export default function TasksPage() {
 
   const selectedJob = jobs.find(j => j.id === selectedJobId);
 
+  useEffect(() => {
+    if (selectedJobId && !selectedJob) {
+      setSelectedJobId(null);
+    }
+  }, [selectedJob, selectedJobId]);
+
   const fetchData = useCallback(async () => {
     if (!client || !connected) return;
     setLoading(true);
@@ -321,7 +327,7 @@ export default function TasksPage() {
 
       {/* Mobile: Job List + Detail combined */}
       <div className="flex-1 lg:hidden min-h-0 flex flex-col overflow-hidden">
-        {!selectedJobId ? (
+        {!selectedJob ? (
           /* Mobile Job List */
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="px-3 py-2 flex items-center justify-between bg-muted/20 border-b border-border/50">

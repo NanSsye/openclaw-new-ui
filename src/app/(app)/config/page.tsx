@@ -15,8 +15,8 @@ import {
 import {
   Settings, Save, Play, RefreshCw,
   Code, Layout, FileJson, AlertCircle,
-  Globe, Shield, MessageSquare, Zap, Cpu,
-  Terminal, Palette, Box, ChevronDown
+  Globe, Zap, Cpu,
+  Terminal, Box, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from "@monaco-editor/react";
@@ -43,13 +43,11 @@ function toInputValue(value: unknown) {
 }
 
 const SECTIONS = [
-  { id: "agents", label: "代理中心 (Agents)", icon: Cpu, desc: "管理多智能体身份、模型及心跳" },
-  { id: "auth", label: "身份鉴权 (Auth)", icon: Shield, desc: "管理 API Key 与访问配置" },
-  { id: "channels", label: "消息通道 (Channels)", icon: MessageSquare, desc: "配置微信、Discord、Telegram 等对接" },
-  { id: "skills", label: "技能设置 (Skills)", icon: Zap, desc: "全局技能开关及环境路径" },
-  { id: "gateway", label: "网关设置 (Gateway)", icon: Globe, desc: "端口、内网穿透及底层参数" },
-  { id: "logging", label: "日志系统 (Logging)", icon: Terminal, desc: "调试等级及存储配置" },
-  { id: "ui", label: "界面偏好 (UI)", icon: Palette, desc: "视觉主题、语言及交互属性" }
+  { id: "overview", label: "使用说明", icon: Settings, desc: "哪些项适合在这里改，哪些项应该去专门控制台页面" },
+  { id: "agents", label: "代理默认项", icon: Cpu, desc: "仅保留 agents.defaults 下已确认有效的常用项" },
+  { id: "gateway", label: "网关设置", icon: Globe, desc: "端口、隧道及网关级基础配置" },
+  { id: "logging", label: "日志系统", icon: Terminal, desc: "日志等级与输出方式" },
+  { id: "skills", label: "技能设置", icon: Zap, desc: "技能与插件目录等网关级配置" },
 ];
 
 export default function ConfigPage() {
@@ -192,6 +190,21 @@ export default function ConfigPage() {
       </div>
     );
   };
+
+  const renderInfoCard = (title: string, description: string, hint?: string, tone: "amber" | "blue" = "amber") => (
+    <div className={cn(
+      "md:col-span-2 rounded-2xl p-4 space-y-2",
+      tone === "amber"
+        ? "border border-amber-500/20 bg-amber-500/5"
+        : "border border-primary/20 bg-primary/5",
+    )}>
+      <div className={cn("flex items-center gap-2 text-sm font-semibold", tone === "amber" ? "text-amber-600" : "text-primary")}>
+        <AlertCircle className="size-4" /> {title}
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
 
   return (
     <div className="h-[calc(100vh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex flex-col animate-in fade-in duration-500">
@@ -356,19 +369,28 @@ export default function ConfigPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-4 md:gap-y-6">
-                  {activeSection === "agents" && (
+                  {activeSection === "overview" && (
                     <>
-                      {renderField("默认模型", "agents.defaultModel", "string", "系统全局默认使用的 AI 模型 ID")}
-                      {renderField("多智能体模式", "agents.multiAgent", "boolean", "是否开启多 Agent 协作工作流")}
-                      {renderField("上下文窗口", "agents.contextTokens", "number", "单次对话允许注入的最大 Token 数")}
-                      {renderField("推理等级", "agents.reasoningLevel", "string", "模型思考活跃度 (low/medium/high)")}
+                      {renderInfoCard(
+                        "这个页面现在只保留真实可写配置",
+                        "过去这里混入了不少并不存在于 gateway schema 的字段，保存后会报 INVALID_REQUEST。现在已收口为高级配置中心，只保留确认可写的少量字段。",
+                        "日常使用请优先去 Agents / Models / Tools / Channels 等专门页面；这里更适合少量默认项和源码模式。",
+                        "blue",
+                      )}
+                      {renderInfoCard(
+                        "建议去专门控制台页修改的内容",
+                        "Agents：代理身份、subagents、skills、tools profile；Models：默认模型 / fallback / thinking；Tools：web / media / exec 开关；Channels：微信/Discord/Telegram 等通道。",
+                        "如果你不确定一个键是否合法，优先不要在这里新增，直接在源码模式确认当前 config.get 返回结构。",
+                      )}
                     </>
                   )}
-                  {activeSection === "auth" && (
+                  {activeSection === "agents" && (
                     <>
-                      {renderField("网关 Token", "gateway.auth.token", "string", "控制台访问的鉴权密钥")}
-                      {renderField("允许注册", "gateway.auth.allowSignup", "boolean", "是否允许新节点自助加入集群")}
-                      {renderField("强制 HTTPS", "gateway.auth.forceHttps", "boolean", "所有流量均要求 SSL 加密")}
+                      {renderField("默认模型", "agents.defaults.model", "string", "系统全局默认使用的 AI 模型 ID")}
+                      {renderField("上下文窗口", "agents.defaults.contextTokens", "number", "单次对话允许注入的最大 Token 数")}
+                      {renderField("推理等级", "agents.defaults.reasoningLevel", "string", "模型思考活跃度 (low/medium/high)")}
+                      {renderField("图片模型", "agents.defaults.imageModel", "string", "用于图片理解/生成的默认模型")}
+                      {renderInfoCard("多智能体模式已移除", "agents.multiAgent 不是当前 gateway 认可的配置键，协作能力由 agents.list / subagents / sessions 工具链决定。", "如果要控制多 Agent 行为，请到 Agents Console 配置 subagents.allowAgents、model 和 maxConcurrent。")}
                     </>
                   )}
                   {activeSection === "gateway" && (
@@ -376,6 +398,7 @@ export default function ConfigPage() {
                       {renderField("监听端口", "gateway.port", "number", "网关服务运行的 TCP 端口 (1-65535)")}
                       {renderField("启用穿透", "gateway.tunnel.enabled", "boolean", "是否开启 Built-in 域名穿透服务")}
                       {renderField("穿透前缀", "gateway.tunnel.subdomain", "string", "分配的二级域名子域")}
+                      {renderInfoCard("鉴权和通道已移出这里", "gateway.auth.* 与 channels.* 结构在不同部署中差异较大，不再放在这个表单页里，避免误写导致 config.apply 失败。", "需要调整时请使用专门页面，或切到源码模式手动编辑。")}
                     </>
                   )}
                   {activeSection === "logging" && (
@@ -389,13 +412,7 @@ export default function ConfigPage() {
                     <>
                       {renderField("工作区路径", "skills.workspaceDir", "string", "自定义扩展插件的扫描根目录")}
                       {renderField("核心隔离自启", "skills.isolated", "boolean", "是否将关键技能运行在沙箱容器中")}
-                    </>
-                  )}
-                  {activeSection === "ui" && (
-                    <>
-                      {renderField("深色模式", "ui.darkMode", "boolean", "全局强制使用暗黑系主题")}
-                      {renderField("紧凑布局", "ui.compact", "boolean", "大幅缩减组件间距，提高单页信息密度")}
-                      {renderField("动画增强", "ui.animations", "boolean", "开启高级转场与微交互动效")}
+                      {renderInfoCard("UI 偏好和动画不在这里配置", "ui.darkMode / ui.compact / ui.animations 这类前端偏好不会被 gateway 识别，因此已完全从表单页移除。", "如果后面要做主题/动画设置，应该落到本地设置或账户设置，而不是写入 gateway config。")}
                     </>
                   )}
                 </div>

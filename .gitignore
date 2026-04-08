@@ -60,3 +60,5 @@ android/**/build/
 android/app/src/main/assets/
 ios/**/DerivedData/
 ios/**/public/
+.tools/
+npm

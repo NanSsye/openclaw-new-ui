@@ -1,12 +1,13 @@
 {
     "name": "openclaw-new-ui",
-    "version": "2026.4.4-2",
+    "version": "2026.4.8",
     "private": true,
     "scripts": {
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "eslint"
+        "lint": "eslint",
+        "test": "vitest run"
     },
     "dependencies": {
         "@capacitor/android": "^8.2.0",
@@ -42,6 +43,7 @@
         "zod": "^4.3.6"
     },
     "devDependencies": {
+        "@testing-library/react": "^16.3.0",
         "@tailwindcss/postcss": "^4",
         "@types/node": "^20",
         "@types/react": "^19",
@@ -49,7 +51,9 @@
         "@types/react-syntax-highlighter": "^15.5.13",
         "eslint": "^9",
         "eslint-config-next": "16.1.7",
+        "jsdom": "^26.1.0",
         "tailwindcss": "^4",
-        "typescript": "^5"
+        "typescript": "^5",
+        "vitest": "^3.2.4"
     }
 }

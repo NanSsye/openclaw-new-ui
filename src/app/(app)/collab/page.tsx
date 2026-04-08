@@ -8,8 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CollabTaskForm } from "@/components/collab/collab-task-form";
 import { CollabRoomList } from "@/components/collab/collab-room-list";
-import { CollabTimeline } from "@/components/collab/collab-timeline";
+import { CollabTimelineControlled } from "@/components/collab/collab-timeline";
 import { CollabAgentPanel } from "@/components/collab/collab-agent-panel";
+import { CollabActivityStrip } from "@/components/collab/collab-activity-strip";
 import { useCollabRoom } from "@/hooks/use-collab-room";
 import { useCollabSessions } from "@/hooks/use-collab-sessions";
 import type { AgentItem } from "@/lib/openclaw/chat-types";
@@ -26,7 +27,8 @@ export default function CollabPage() {
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [mobileView, setMobileView] = useState<"timeline" | "tasks" | "control">("timeline");
   const [mobileIntroExpanded, setMobileIntroExpanded] = useState(false);
-  const { rooms, activeRoomId, activeRoom, setActiveRoomId, createRoom, updateRoom, archiveRoom, restoreRoom, deleteRoom } = useCollabRoom();
+  const [timelineAgentFilter, setTimelineAgentFilter] = useState("all");
+  const { rooms, activeRoomId, activeRoom, setActiveRoomId, createRoom, updateRoom, archiveRoom, restoreRoom, deleteRoom, setRoomHistoryCache } = useCollabRoom();
 
   const fetchAgents = useCallback(async () => {
     if (!client || !connected) return;
@@ -43,7 +45,18 @@ export default function CollabPage() {
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
-  const collab = useCollabSessions({ client, connected, room: activeRoom, onUpdateRoom: updateRoom, toast });
+  const collab = useCollabSessions({
+    client,
+    connected,
+    room: activeRoom,
+    onUpdateRoom: updateRoom,
+    onPersistHistoryCache: setRoomHistoryCache,
+    toast,
+  });
+
+  useEffect(() => {
+    setTimelineAgentFilter("all");
+  }, [activeRoomId]);
 
   const agentItems = useMemo<AgentItem[]>(() => [{ id: "main", name: "Main Agent" }, ...agents.map((agent) => ({ id: agent.id, name: agent.name }))], [agents]);
 
@@ -119,7 +132,19 @@ export default function CollabPage() {
 
           <div className={`order-1 xl:order-2 space-y-6 min-w-0 ${mobileView === "timeline" ? "block" : "hidden xl:block"}`}>
             {activeRoom ? (
-              <CollabTimeline timeline={collab.timeline} agents={agentItems} />
+              <>
+                <CollabActivityStrip
+                  workers={collab.workerStates}
+                  selectedAgentId={timelineAgentFilter}
+                  onSelectAgent={setTimelineAgentFilter}
+                />
+                <CollabTimelineControlled
+                  timeline={collab.timeline}
+                  agents={agentItems}
+                  agentFilter={timelineAgentFilter}
+                  onAgentFilterChange={setTimelineAgentFilter}
+                />
+              </>
             ) : (
               <Card className="rounded-[22px] sm:rounded-3xl border-border/50 bg-background/80 backdrop-blur-sm min-h-[320px] sm:min-h-[560px] flex items-center justify-center p-5 sm:p-10 text-center">
                 <div className="max-w-lg space-y-2.5 sm:space-y-4 text-muted-foreground">

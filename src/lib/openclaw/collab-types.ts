@@ -84,6 +84,7 @@ export type CollabRoom = {
   archivedAt?: number | null;
   notes?: string;
   autoIncludeWorkerSessions: boolean;
+  historyCache?: CollabHistoryMap;
 };
 
 export type CreateCollabRoomInput = {

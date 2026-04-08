@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
@@ -16,6 +16,7 @@ function createOptimisticMessage(text: string, pendingAttachments: PendingAttach
     id: generateUUID(),
     role: "user",
     content: text,
+    text,
     attachments: pendingAttachments.map((attachment) => ({
       id: attachment.localId,
       kind: attachment.kind,
@@ -26,6 +27,7 @@ function createOptimisticMessage(text: string, pendingAttachments: PendingAttach
       durationMs: attachment.durationMs,
     })),
     createdAt: new Date().toISOString(),
+    optimistic: true,
   };
 }
 
@@ -53,11 +55,12 @@ export function useChatSend({
   pendingAttachments,
   buildAttachmentPrompt,
   clearPendingAttachments,
-  setMessages,
+  appendOptimisticMessage,
+  removeMessage,
+  invalidateHistory,
   setInputText,
   setIsTyping,
-  setStreamingMessage,
-  setStreamingMessages,
+  clearTransient,
   startPolling,
   stopPolling,
   currentRunIdRef,
@@ -70,11 +73,12 @@ export function useChatSend({
   pendingAttachments: PendingAttachment[];
   buildAttachmentPrompt: (attachments: ChatAttachment[]) => string;
   clearPendingAttachments: () => void;
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  appendOptimisticMessage: (message: ChatMessage) => void;
+  removeMessage: (messageId: string) => void;
+  invalidateHistory: (sessionKey?: string) => void;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
   setIsTyping: React.Dispatch<React.SetStateAction<boolean>>;
-  setStreamingMessage: React.Dispatch<React.SetStateAction<ChatMessage | null>>;
-  setStreamingMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  clearTransient: () => void;
   startPolling: () => void;
   stopPolling: () => void;
   currentRunIdRef: MutableRefObject<string>;
@@ -87,11 +91,10 @@ export function useChatSend({
     const optimisticMessage = createOptimisticMessage(text, pendingAttachments);
     const attachmentsToUpload = [...pendingAttachments];
 
-    setMessages((prev) => [...prev, optimisticMessage]);
+    appendOptimisticMessage(optimisticMessage);
     setInputText("");
     setIsTyping(true);
-    setStreamingMessage(null);
-    setStreamingMessages([]);
+    clearTransient();
     clearPendingAttachments();
 
     try {
@@ -100,6 +103,7 @@ export function useChatSend({
       const finalMessage = attachmentPrompt ? `${attachmentPrompt}\n\n${text}`.trim() : text;
 
       startPolling();
+      invalidateHistory(activeSession);
 
       const sendRes = await client.request<ChatSendResponse>("chat.send", {
         sessionKey: activeSession,
@@ -115,7 +119,8 @@ export function useChatSend({
     } catch (error: unknown) {
       stopPolling();
       setIsTyping(false);
-      setStreamingMessage(null);
+      clearTransient();
+      removeMessage(optimisticMessage.id || "");
       toast({
         title: "发送失败",
         description: error instanceof Error ? error.message : "消息发送失败",
@@ -133,13 +138,16 @@ export function useChatSend({
     currentRunIdRef,
     inputText,
     pendingAttachments,
+    appendOptimisticMessage,
+    invalidateHistory,
+    removeMessage,
     setInputText,
     setIsTyping,
-    setMessages,
-    setStreamingMessage,
-    setStreamingMessages,
+    clearTransient,
     startPolling,
     stopPolling,
     toast,
   ]);
 }
+
+

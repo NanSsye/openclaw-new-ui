@@ -40,6 +40,37 @@ export type ChatMessage = {
   [key: string]: unknown;
 };
 
+export type UiChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content?: string | ChatContentPart[] | null;
+  text?: string;
+  attachments?: ChatAttachment[];
+  files?: ChatAttachment[];
+  createdAt?: string | number;
+  timestamp?: string | number;
+  ts?: string | number;
+  sender?: string;
+  from?: string;
+  agentId?: string;
+  streaming?: boolean;
+  toolName?: string;
+  toolStatus?: "running" | "success" | "error";
+  toolSummary?: string;
+  toolArgs?: unknown;
+  toolDetail?: unknown;
+  toolDurationMs?: number;
+  sourceMessage?: ChatMessage;
+};
+
+export type ChatActivity = {
+  kind: "thinking" | "writing" | "tool";
+  label: string;
+  detail?: string;
+  toolName?: string;
+  toolSummary?: string;
+};
+
 export type SessionUsage = {
   input?: number;
   output?: number;
